@@ -5,7 +5,11 @@ resources:
   item_ids: null                          # optional list of ids aligned to embeddings
   categories: {}                          # optional {item_id: category}
 pipeline:
-  - id: retrieve
+  - id: retriever1
+    kind: retriever
+    impl: unirec.plugins.retrieval.dualtower:TwoTowerANN
+    params: { topk: 500 }
+  - id: retriever2
     kind: retriever
     impl: unirec.plugins.retrieval.dualtower:TwoTowerANN
     params: { topk: 500 }
