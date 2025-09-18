@@ -1,30 +1,38 @@
 from dataclasses import dataclass, field
-from typing import Dict, Any, List, Optional
+from typing import Any, final
+
 
 @dataclass
 class Candidate:
     item_id: int
     score: float
     source: str = "retrieval"
-    features: Dict[str, Any] = field(default_factory=dict)
+    features: dict[str, Any] = field(default_factory=dict)
+
 
 @dataclass
 class CandidateSet:
     user_id: int
-    candidates: List[Candidate]
+    candidates: list[Candidate]
+
+    @final
     def topk(self, k: int) -> "CandidateSet":
-        c = sorted(self.candidates, key=lambda x: x.score, reverse=True)[:k]
+        c: list[Candidate] = sorted(
+            self.candidates, key=lambda x: x.score, reverse=True
+        )[:k]
         return CandidateSet(self.user_id, c)
+
 
 @dataclass
 class Slate:
     user_id: int
-    items: List[int]
-    aux: Dict[str, Any] = field(default_factory=dict)
+    items: list[int]
+    aux: dict[str, Any] = field(default_factory=dict)
+
 
 @dataclass
 class PipelineState:
-    context: Dict[str, Any]
-    candset: Optional[CandidateSet] = None
-    slate: Optional[Slate] = None
-    logs: Dict[str, Any] = field(default_factory=dict)
+    context: dict[str, Any]
+    candset: CandidateSet | None = None
+    slate: Slate | None = None
+    logs: dict[str, Any] = field(default_factory=dict)

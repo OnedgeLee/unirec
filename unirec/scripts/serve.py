@@ -2,6 +2,7 @@ import argparse, json
 from ..core.config import load_config
 from ..core.runner import run_pipeline
 
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--config", required=True)
@@ -15,6 +16,7 @@ def main():
         "slate": state.slate.items if state.slate else [],
     }
     print(json.dumps(out, ensure_ascii=False))
+
 
 if __name__ == "__main__":
     main()

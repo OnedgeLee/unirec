@@ -3,10 +3,13 @@ from ..core.config import load_config
 from ..core.runner import run_pipeline
 from ..core.state import PipelineState
 
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--config", required=True)
-    ap.add_argument("--dataset", required=False, help="Path to JSON with users, gt per user")
+    ap.add_argument(
+        "--dataset", required=False, help="Path to JSON with users, gt per user"
+    )
     ap.add_argument("--K", type=int, default=10)
     args = ap.parse_args()
 
@@ -36,10 +39,12 @@ def main():
     for stg in cfg.get("pipeline", []):
         if stg["kind"] == "evaluator":
             from ..core.registry import create
+
             comp = create(stg["kind"], stg["impl"], **stg.get("params", {}))
             comp.setup(cfg.get("resources", {}))
             final_state = comp.run(final_state)
     print(json.dumps(final_state.logs.get("reports", {}), ensure_ascii=False, indent=2))
+
 
 if __name__ == "__main__":
     main()

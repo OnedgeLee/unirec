@@ -1,23 +1,31 @@
 from importlib import import_module
-from typing import Dict, Type
+from types import ModuleType
+from typing import Any
 from .interfaces import Component
 
-REGISTRY: Dict[str, Dict[str, Type[Component]]] = {}
+REGISTRY: dict[str, dict[str, type[Component]]] = {}
+
 
 def register(kind: str):
-    def deco(cls):
-        REGISTRY.setdefault(kind, {})[f"{cls.__module__}.{cls.__name__}"] = cls
-        return cls
+    def deco(comp_type: type[Component]):
+        REGISTRY.setdefault(kind, {})[
+            f"{comp_type.__module__}.{comp_type.__name__}"
+        ] = comp_type
+        return comp_type
+
     return deco
 
-def create(kind: str, impl: str, **params) -> Component:
+
+def create(kind: str, impl: str, **params: Any) -> Component:
     # Try registry first
-    cls = REGISTRY.get(kind, {}).get(impl)
-    if cls is None:
+    comp_type: type[Component] | None = REGISTRY.get(kind, {}).get(impl)
+    if comp_type is None:
+        mod: str = ""
+        name: str = ""
         if ":" in impl:
             mod, name = impl.split(":")
         else:
             mod, name = impl.rsplit(".", 1)
-        module = import_module(mod)
-        cls = getattr(module, name)
-    return cls(**params)
+        module: ModuleType = import_module(mod)
+        comp_type = getattr(module, name)
+    return comp_type(**params)
