@@ -20,7 +20,7 @@ class OfflineEvaluator(Evaluator):
             self.item_emb = np.load(self.item_emb)
         self.categories = resources.get("categories", {})
 
-    def run(self, state: PipelineState) -> PipelineState:
+    def evaluate(self, state: PipelineState) -> Dict[str, Any]:
         logs = state.logs
         gt = logs.get("gt", {})
         slates = logs.get("slates", {})
@@ -41,5 +41,4 @@ class OfflineEvaluator(Evaluator):
             f"Entropy@{K}": float(np.mean(ents) if ents else 0.0),
             f"Coverage@{K}": coverage_at_k(all_slates, len(self.item_emb) if self.item_emb is not None else 1, K),
         }
-        state.logs.setdefault("reports", {}).update(report)
-        return state
+        return report

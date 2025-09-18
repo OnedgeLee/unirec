@@ -11,7 +11,7 @@ class MMR(Reranker):
         self.lmb = float(self.params.get("lambda", 0.2))
         emb_res = resources.get("item_embeddings")
         self.item_emb = np.load(emb_res).astype(np.float32) if isinstance(emb_res, str) else emb_res
-    def run(self, state: PipelineState) -> PipelineState:
+    def rerank(self, state: PipelineState) -> CandidateSet:
         if state.candset is None:
             return state
         cands = state.candset.candidates
@@ -32,8 +32,7 @@ class MMR(Reranker):
             selected.append(best)
             selected_ids.add(best.item_id)
             cands.remove(best)
-        state.candset.candidates = selected
-        return state
+        return CandidateSet(user_id=state.candset.user_id, candidates=selected)
 
 class CosineSim:
     def __init__(self, item_emb): self.item_emb = item_emb
