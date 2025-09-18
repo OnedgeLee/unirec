@@ -1,8 +1,10 @@
+import numpy as np
+from typing import Any
 from ...core.registry import register
 from ...core.interfaces import Evaluator
 from ...core.state import PipelineState
 from .metrics import ndcg_at_k, recall_at_k, ild_at_k, entropy_at_k, coverage_at_k
-import numpy as np
+
 
 @register("evaluator")
 class OfflineEvaluator(Evaluator):
@@ -13,14 +15,16 @@ class OfflineEvaluator(Evaluator):
       slates: {user_id: [item_ids...]}
       resources for ILD/Entropy: item_embeddings, categories(optional)
     """
+
     def setup(self, resources):
         self.item_emb = resources.get("item_embeddings")
         if isinstance(self.item_emb, str):
             import numpy as np
+
             self.item_emb = np.load(self.item_emb)
         self.categories = resources.get("categories", {})
 
-    def evaluate(self, state: PipelineState) -> Dict[str, Any]:
+    def evaluate(self, state: PipelineState) -> dict[str, Any]:
         logs = state.logs
         gt = logs.get("gt", {})
         slates = logs.get("slates", {})
@@ -32,13 +36,19 @@ class OfflineEvaluator(Evaluator):
             all_slates.append(slate)
             ndcgs.append(ndcg_at_k(g, slate, K))
             recalls.append(recall_at_k(g, slate, K))
-            ilds.append(ild_at_k(slate, self.item_emb, K) if self.item_emb is not None else 0.0)
-            ents.append(entropy_at_k(slate, self.categories, K) if self.categories else 0.0)
+            ilds.append(
+                ild_at_k(slate, self.item_emb, K) if self.item_emb is not None else 0.0
+            )
+            ents.append(
+                entropy_at_k(slate, self.categories, K) if self.categories else 0.0
+            )
         report = {
             f"NDCG@{K}": float(np.mean(ndcgs) if ndcgs else 0.0),
             f"Recall@{K}": float(np.mean(recalls) if recalls else 0.0),
             f"ILD@{K}": float(np.mean(ilds) if ilds else 0.0),
             f"Entropy@{K}": float(np.mean(ents) if ents else 0.0),
-            f"Coverage@{K}": coverage_at_k(all_slates, len(self.item_emb) if self.item_emb is not None else 1, K),
+            f"Coverage@{K}": coverage_at_k(
+                all_slates, len(self.item_emb) if self.item_emb is not None else 1, K
+            ),
         }
         return report

@@ -1,14 +1,16 @@
 from importlib import import_module
-from typing import Dict, Type
 from .interfaces import Component
 
-REGISTRY: Dict[str, Dict[str, Type[Component]]] = {}
+REGISTRY: dict[str, dict[str, type[Component]]] = {}
+
 
 def register(kind: str):
     def deco(cls):
         REGISTRY.setdefault(kind, {})[f"{cls.__module__}.{cls.__name__}"] = cls
         return cls
+
     return deco
+
 
 def create(kind: str, impl: str, **params) -> Component:
     # Try registry first

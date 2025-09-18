@@ -110,7 +110,7 @@ Output is a JSON report with NDCG/Recall/ILD/Entropy/Coverage.
 # core/interfaces.py (summary)
 
 class Retriever(Component):
-    def search_one(self, state, k) -> List[Candidate]: ...
+    def search_one(self, state, k) -> list[Candidate]: ...
 
 class Merger(Component):
     def merge(self, pools, user_id, topk) -> CandidateSet: ...
@@ -121,9 +121,9 @@ class Reranker(Component):  # Pre-rank: operate on CandidateSet
 @dataclass
 class PolicyOutput:
     slate: Slate
-    slot_propensity: List[float]
-    per_item: List[PerItemDecision]  # mu, sigma, score, propensity
-    aux: Dict[str, Any] = field(default_factory=dict)
+    slot_propensity: list[float]
+    per_item: list[PerItemDecision]  # mu, sigma, score, propensity
+    aux: dict[str, Any] = field(default_factory=dict)
 
 class Ranker(Component):
     def select_slate(self, state) -> PolicyOutput: ...

@@ -1,9 +1,10 @@
-from typing import Dict, Any
+from typing import Any
 from .config import Config
 from .state import PipelineState
 from .registry import create
 
-def run_pipeline(cfg: Config, context: Dict[str, Any]) -> PipelineState:
+
+def run_pipeline(cfg: Config, context: dict[str, Any]) -> PipelineState:
     state = PipelineState(context=context)
     resources = cfg.get("resources", {})
     for stg in cfg.get("pipeline", []):
