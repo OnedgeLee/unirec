@@ -55,12 +55,12 @@ jobs:
 
       - name: Ensure smoke test
         run: |
-          if ! ls tests/*.py >/dev/null 2>&1; then
+          if ! compgen -G "tests/*.py" > /dev/null; then
             mkdir -p tests
-            cat > tests/test_smoke.py <<'PY'
-            def test_smoke():
-                assert True
-            PY
+            printf '%s\n' \
+              'def test_smoke():' \
+              '    assert True' \
+              > tests/test_smoke.py
           fi
 
       - name: Run pytest
