@@ -7,11 +7,11 @@ resources:
 pipeline:
   - id: retriever1
     kind: retriever
-    impl: unirec.plugins.retrieval.dualtower:TwoTowerANN
+    impl: unirec.plugins.retrieval.toy_dualtower:ToyDualTowerANN
     params: { topk: 500 }
   - id: retriever2
     kind: retriever
-    impl: unirec.plugins.retrieval.dualtower:TwoTowerANN
+    impl: unirec.plugins.retrieval.toy_dualtower:ToyDualTowerANN
     params: { topk: 500 }
   - id: merge
     kind: merger

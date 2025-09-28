@@ -1,6 +1,6 @@
 from typing import Any
 from .config import Config
-from .interface import Component
+from .interfaces import Component
 from .state import PipelineState
 from .registry import create
 
