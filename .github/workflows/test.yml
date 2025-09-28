@@ -7,12 +7,16 @@ on:
       - "**.py"
       - "unirec/**"
       - "tests/**"
+      - "pyproject.toml"
+      - "uv.lock"
       - ".github/workflows/test.yml"
   pull_request:
     paths:
       - "**.py"
       - "unirec/**"
       - "tests/**"
+      - "pyproject.toml"
+      - "uv.lock"
       - ".github/workflows/test.yml"
 
 concurrency:
@@ -26,39 +30,44 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: "3.13"
+        python-version: ["3.13"]
 
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-python@v5
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v3
+
+      - name: Install Python
+        run: uv python install ${{ matrix.python-version }}
+
+      - name: Cache uv
+        uses: actions/cache@v4
         with:
-          python-version: ${{ matrix.python-version }}
-          cache: "pip"
-          cache-dependency-path: unirec/requirements.txt
+          path: ~/.cache/uv
+          key: uv-${{ runner.os }}-${{ matrix.python-version }}-${{ hashFiles('**/pyproject.toml', '**/uv.lock') }}
+          restore-keys: |
+            uv-${{ runner.os }}-${{ matrix.python-version }}-
+            uv-${{ runner.os }}-
 
-      - name: Install deps
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r unirec/requirements.txt
-          pip install pytest pytest-cov
+      - name: Sync dev deps
+        run: uv sync --locked --group dev --no-install-project
 
-      # Ensure repo always has at least one test
       - name: Ensure smoke test
         run: |
-          if ! ls tests/*.py >/dev/null 2>&1; then
+          if ! compgen -G "tests/*.py" > /dev/null; then
             mkdir -p tests
-            cat > tests/test_smoke.py <<'PY'
-            def test_smoke():
-                assert True
-            PY
+            printf '%s\n' \
+              'def test_smoke():' \
+              '    assert True' \
+              > tests/test_smoke.py
           fi
 
       - name: Run pytest
         env:
           PYTHONPATH: .
         run: |
-          pytest -q --maxfail=1 --disable-warnings \
+          uv run --group dev pytest -q --maxfail=1 --disable-warnings \
                  --cov=unirec --cov-report=xml --cov-report=term-missing
 
       - name: Upload coverage.xml
