@@ -41,7 +41,7 @@ unirec/
     runner.py         # Executes the YAML-declared pipeline
   plugins/
     retrieval/
-      dualtower.py    # Dual-tower style retriever (cosine stub)
+      simple_twotower_ann.py    # Simple two-tower style retriever (cosine stub)
     merge/
       union.py        # Weighted union + dedup → CandidateSet
     rerank/
@@ -145,12 +145,12 @@ resources:
 pipeline:
   - id: retriever1
     kind: retriever
-    impl: unirec.plugins.retrieval.dualtower:TwoTowerANN
+    impl: unirec.plugins.retrieval.simple_twotower_ann:SimpleTwotowerAnn
     params: { topk: 500 }
 
   - id: retriever2
     kind: retriever
-    impl: unirec.plugins.retrieval.dualtower:TwoTowerANN
+    impl: unirec.plugins.retrieval.simple_twotower_ann:SimpleTwotowerAnn
     params: { topk: 500 }
 
   - id: merge
@@ -183,7 +183,7 @@ Why YAML-first? Swap retrievers/rankers/rerankers and tune hyper-params without 
 
 ## Included Plugins
 
-- **Retrieval** – TwoTowerANN (cosine stub)
+- **Retrieval** – SimpleTwotowerAnn (cosine stub)
 Simple retriever with cosine similarity.
 - **Merge** – WeightedUnion (weighted mix + dedup)
 Practical for combining “freshness vs long-term taste” retrievers.

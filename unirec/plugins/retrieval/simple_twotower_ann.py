@@ -8,8 +8,8 @@ from ..common import ArraySource, encode_user, load_array
 
 
 @register("retriever")
-class ToyDualTowerANN(Retriever):
-    """Minimal dual-tower style retriever using brute-force cosine for scaffold.
+class SimpleTwotowerAnn(Retriever):
+    """Minimal two-tower style retriever using brute-force cosine for scaffold.
     Replace with FAISS/HNSW index for production.
     """
 
