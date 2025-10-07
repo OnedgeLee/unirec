@@ -3,12 +3,12 @@ from numpy.typing import NDArray
 from common import ArraySource, load_array
 from typing import Any, cast, override
 from ...core.registry import register
-from ...core.interfaces import Ranker, PolicyOutput, PerItemDecision
+from ...core.interfaces import PolicyOutput, PerItemDecision, SlatePolicy
 from ...core.state import Candidate, PipelineState, Slate
 
 
-@register("ranker")
-class UCBSequentialSlate(Ranker):
+@register("slate_policy")
+class UCBSequentialSlate(SlatePolicy):
     @override
     def __init__(self, **params: Any):
         super().__init__(**params)

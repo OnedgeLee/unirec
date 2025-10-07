@@ -2,14 +2,14 @@ import numpy as np
 from numpy.typing import NDArray
 from typing import Any, cast, override
 from ...core.registry import register
-from ...core.interfaces import Retriever
+from ...core.interfaces import CandidateRetriever
 from ...core.state import Candidate, PipelineState
 from ..common import ArraySource, encode_user, load_array
 
 
-@register("retriever")
-class SimpleTwotowerAnn(Retriever):
-    """Minimal two-tower style retriever using brute-force cosine for scaffold.
+@register("candidate_retriever")
+class SimpleTwotowerAnn(CandidateRetriever):
+    """Minimal two-tower style candidate retriever using brute-force cosine for scaffold.
     Replace with FAISS/HNSW index for production.
     """
 

@@ -1,11 +1,11 @@
 from typing import cast, override
 from ...core.registry import register
-from ...core.interfaces import Merger
+from ...core.interfaces import CandidateMerger
 from ...core.state import PipelineState, CandidateSet, Candidate
 
 
-@register("merger")
-class WeightedUnion(Merger):
+@register("candidate_merger")
+class WeightedUnion(CandidateMerger):
     @override
     def merge(
         self, pools: dict[str, list[Candidate]], user_id: int, topk: int
