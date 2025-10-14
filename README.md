@@ -44,7 +44,7 @@ unirec/
       twotower_retriever_simple.py    # Simple two-tower style retriever (cosine stub)
     candidate_merger/
       union.py        # Weighted union + dedup → CandidateSet
-    candiate_shaper/
+    candidate_shaper/
       mmr.py          # MMR (shape: shape CandidateSet before policy)
     slate_policy/
       bandit_ucb.py   # UCB sequential slate (residual × position × (μ+ασ) − diversity)
