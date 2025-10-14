@@ -64,7 +64,7 @@ unirec/
       item_encodable.py # Input container for item raw features/spec
       user_encodable.py # Input container for user context/session features
     encoded/
-      item_encoded.py # Trining-time item embedding (Tensor)
+      item_encoded.py # Training-time item embedding (Tensor)
       user_encoded.py # Training-time user embedding (Tensor)
   configs/
     exp_dual_ucb.yaml # Example pipeline
