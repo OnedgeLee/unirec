@@ -290,6 +290,8 @@ class PointerNetwork(nn.Module):
         self.attention_method = attention_method
         self.wq = nn.Linear(d_q, d_model)
         self.wk = nn.Linear(d_k, d_model)
+
+        self.attention_logits: ScaledDotProductAttentionLogits | AdditiveAttentionLogits
         if attention_method == "scaled_dot_product":
             self.attention_logits = ScaledDotProductAttentionLogits()
         elif attention_method == "additive":
@@ -342,6 +344,7 @@ class LstmPointerNetwork(nn.Module):
         self.wq_state: tuple[Tensor, Tensor] | None = None
         self.wk = nn.Linear(d_k, d_model)
 
+        self.attention_logits: ScaledDotProductAttentionLogits | AdditiveAttentionLogits
         if attention_method == "scaled_dot_product":
             self.attention_logits = ScaledDotProductAttentionLogits()
         else:
