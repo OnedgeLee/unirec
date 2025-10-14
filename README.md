@@ -40,9 +40,9 @@ unirec/
     registry.py       # Plugin loader from "package.module:ClassName"
     runner.py         # Executes the YAML-declared pipeline
   plugins/
-    retrieval/
-      simple_twotower_ann.py    # Simple two-tower style retriever (cosine stub)
-    merge/
+    candidate_retriever/
+      twotower_retriever_simple.py    # Simple two-tower style retriever (cosine stub)
+    candidate_merger/
       union.py        # Weighted union + dedup → CandidateSet
     candiate_shaper/
       mmr.py          # MMR (shape: shape CandidateSet before policy)
@@ -52,16 +52,32 @@ unirec/
       metrics.py      # NDCG / Recall / ILD / Entropy / Coverage
       ope.py          # IPS / SNIPS / DR
       evaluator.py    # OfflineEvaluator: aggregate multi-metrics
+  models/
+    encoders/
+      item_encoder.py # Item feature encoder → ItemEncoded
+      user_encoder.py # User/session encoder → UserEncoded
+    layers.py         # Shared NN blocks/utilities (MLP, attention, etc.)
+    twotower_model.py # Two-tower training model (user/item towers, losses)
+  trainers/
+  data/
+    encodable/
+      item_encodable.py # Input container for item raw features/spec
+      user_encodable.py # Input container for user context/session features
+    encoded/
+      item_encoded.py # Trining-time item embedding (Tensor)
+      user_encoded.py # Training-time user embedding (Tensor)
   configs/
     exp_dual_ucb.yaml # Example pipeline
   scripts/
     serve.py          # Run a single context → pipeline → slate JSON
     offline_eval.py   # Batch users → slates → metrics report
     build_ann.py      # Index build placeholder
-  data/
-    item_emb.npy      # Demo embeddings (random)
-    item_ids.json     # (Optional) id mapping aligned to embeddings
-requirements.txt
+  resources/
+    item_emb.npy    # Demo embeddings (random)
+    item_ids.json   # (Optional) id mapping aligned to embeddings
+pyproject.toml
+uv.lock
+.python-version
 ```
 
 **Why this split?**  
@@ -145,12 +161,12 @@ resources:
 pipeline:
   - id: retrieve1
     kind: candidate_retriever
-    impl: unirec.plugins.candidate_retriever.simple_twotower_ann:SimpleTwotowerAnn
+    impl: unirec.plugins.candidate_retriever.twotower_retriever_simple:TwotowerRetrieverSimple
     params: { topk: 500 }
 
   - id: retrieve2
     kind: candidate_retriever
-    impl: unirec.plugins.candidate_retriever.simple_twotower_ann:SimpleTwotowerAnn
+    impl: unirec.plugins.candidate_retriever.twotower_retriever_simple:TwotowerRetrieverSimple
     params: { topk: 500 }
 
   - id: merge
@@ -183,7 +199,7 @@ Why YAML-first? Swap retrievers/shapers/policies and tune hyper-params without c
 
 ## Included Plugins
 
-- **CandidateRetriever** – SimpleTwotowerAnn (cosine stub)
+- **CandidateRetriever** – TwotowerRetrieverSimple (cosine stub)
 Simple candidate retriever with cosine similarity.
 - **CandidateMerger** – WeightedUnion (weighted mix + dedup)
 Practical for combining “freshness vs long-term taste” retrievers.

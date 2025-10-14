@@ -1,8 +1,10 @@
-from __future__ import annotations
+import numpy as np
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from collections.abc import Iterable
-from typing import Any, final
+from numpy.typing import NDArray
+from torch import Tensor
+from typing import Any, Generic, Mapping, TypeVar, final, runtime_checkable
 from .state import PipelineState, Candidate, CandidateSet, Slate
 
 
@@ -84,6 +86,35 @@ class Trainable(ABC):
 
     def save_artifacts(self, **kwargs):  # pragma: no cover
         pass
+
+
+class Encoded(ABC):
+    @property
+    @abstractmethod
+    def feature(self) -> Tensor: ...
+
+
+class Encodable(ABC):
+    def __init__(self, spec: Mapping[str, Any], data: Any):
+        self.__spec: Mapping[str, Any] = spec
+        self.__data: Any = data
+
+    @property
+    def spec(self) -> Mapping[str, Any]:
+        return self.__spec
+
+    @property
+    def data(self) -> Any:
+        return self.__data
+
+
+TEncodable = TypeVar("TEncodable", bound=Encodable)
+TEncoded = TypeVar("TEncoded", bound=Encoded)
+
+
+class Encoder(ABC, Generic[TEncodable, TEncoded]):
+    @abstractmethod
+    def encode(self, encodable: TEncodable, **kwargs: Any) -> TEncoded: ...
 
 
 class IndexOps(ABC):

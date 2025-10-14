@@ -8,10 +8,8 @@ from ..common import ArraySource, encode_user, load_array
 
 
 @register("candidate_retriever")
-class SimpleTwotowerAnn(CandidateRetriever):
-    """Minimal two-tower style candidate retriever using brute-force cosine for scaffold.
-    Replace with FAISS/HNSW index for production.
-    """
+class TwotowerRetrieverSimple(CandidateRetriever):
+    """Minimal two-tower style candidate retriever using brute-force cosine for scaffold."""
 
     @override
     def __init__(self, **params: Any):

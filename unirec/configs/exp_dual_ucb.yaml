@@ -1,17 +1,17 @@
 experiment: exp_scaffold
 mode: serve
 resources:
-  item_embeddings: data/item_emb.npy      # np.ndarray shape (N, d)
-  item_ids: null                          # optional list of ids aligned to embeddings
-  categories: {}                          # optional {item_id: category}
+  item_embeddings: resources/item_emb.npy      # np.ndarray shape (N, d)
+  item_ids: null                                    # optional list of ids aligned to embeddings
+  categories: {}                                    # optional {item_id: category}
 pipeline:
   - id: retrieve1
     kind: candidate_retriever
-    impl: unirec.plugins.candidate_retriever.simple_twotower_ann:SimpleTwotowerAnn
+    impl: unirec.plugins.candidate_retriever.twotower_retriever_simple:TwotowerRetrieverSimple
     params: { topk: 500 }
   - id: retrieve2
     kind: candidate_retriever
-    impl: unirec.plugins.candidate_retriever.simple_twotower_ann:SimpleTwotowerAnn
+    impl: unirec.plugins.candidate_retriever.twotower_retriever_simple:TwotowerRetrieverSimple
     params: { topk: 500 }
   - id: merge
     kind: candidiate_merger
