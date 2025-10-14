@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 from collections.abc import Iterable
 from numpy.typing import NDArray
 from torch import Tensor
-from typing import Any, Generic, Mapping, TypeVar, final, runtime_checkable
+from typing import Any, Generic, Mapping, TypeVar, final
 from .state import PipelineState, Candidate, CandidateSet, Slate
 
 
