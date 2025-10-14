@@ -14,7 +14,7 @@ pipeline:
     impl: unirec.plugins.candidate_retriever.twotower_retriever_simple:TwotowerRetrieverSimple
     params: { topk: 500 }
   - id: merge
-    kind: candidiate_merger
+    kind: candidate_merger
     impl: unirec.plugins.candidate_merger.union:WeightedUnion
     params:
       weights: { retrieve1: 0.6, retrieve2: 0.4 }
