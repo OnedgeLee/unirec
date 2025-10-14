@@ -1,4 +1,3 @@
-import numpy as np
 from torch import Tensor
 from ..core.interfaces import Encoded
 
