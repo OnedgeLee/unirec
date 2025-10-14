@@ -1,12 +1,21 @@
 import torch
 import torch.nn as nn
+from torch import Tensor
+from typing import Literal
 
 
 class ScaledDotProductAttentionLogits(nn.Module):
     def __init__(self):
         super(ScaledDotProductAttentionLogits, self).__init__()
 
-    def forward(self, q, k, mask=None, clip=None, temp=1.0):
+    def forward(
+        self,
+        q: Tensor,
+        k: Tensor,
+        mask: Tensor | None = None,
+        clip: float | None = None,
+        temp: float = 1.0,
+    ) -> Tensor:
         matmul_qk = torch.matmul(
             q, torch.transpose(k, -2, -1)
         )  # matmul query with key (batch_size, seq_len_q, seq_len_k)
@@ -27,7 +36,15 @@ class AdditiveAttentionLogits(nn.Module):
     def __init__(self):
         super(AdditiveAttentionLogits, self).__init__()
 
-    def forward(self, q, k, v, mask=None, clip=None, temp=1.0):
+    def forward(
+        self,
+        q: Tensor,
+        k: Tensor,
+        v: Tensor,
+        mask: Tensor | None = None,
+        clip: float | None = None,
+        temp: float = 1.0,
+    ) -> Tensor:
         attention_logits = torch.sum(
             v * torch.tanh(q + k), -1
         )  # additive attention - NCO(8), (batch_size, key_len)
@@ -45,7 +62,7 @@ class AdditiveAttentionLogits(nn.Module):
 
 
 class MultiHeadAttention(nn.Module):
-    def __init__(self, d_q, d_k, d_v, d_model, num_heads):
+    def __init__(self, d_q: int, d_k: int, d_v: int, d_model: int, num_heads: int):
         super(MultiHeadAttention, self).__init__()
 
         self.d_model = d_model
@@ -61,11 +78,13 @@ class MultiHeadAttention(nn.Module):
         self.linear = nn.Linear(d_model, d_model)
         # self.conv1d = nn.Conv1d(d_model, d_model, kernel_size=1, strides=1, padding='valid')
 
-    def split_heads(self, x, batch_size):
+    def split_heads(self, x: Tensor, batch_size: int) -> Tensor:
         x = torch.reshape(x, (batch_size, -1, self.num_heads, self.depth))
         return x.permute(0, 2, 1, 3)
 
-    def forward(self, q, k, v, mask):
+    def forward(
+        self, q: Tensor, k: Tensor, v: Tensor, mask: Tensor | None
+    ) -> tuple[Tensor, Tensor]:
         batch_size = q.shape[0]
 
         q = self.wq(q)  # (batch_size, seq_len, d_model)
@@ -97,14 +116,14 @@ class MultiHeadAttention(nn.Module):
 
 
 class PointWiseFeedForwardNetwork(nn.Module):
-    def __init__(self, d_x, d_ff, d_model):
+    def __init__(self, d_x: int, d_ff: int, d_model: int):
         super(PointWiseFeedForwardNetwork, self).__init__()
 
         self.linear_ff = nn.Linear(d_x, d_ff)
         self.relu = nn.ReLU()
         self.linear_model = nn.Linear(d_ff, d_model)
 
-    def forward(self, x):
+    def forward(self, x: Tensor) -> Tensor:
         net = self.linear_ff(x)  # (batch_size, seq_len, dff)
         net = self.relu(net)
         out = self.linear_model(net)  # (batch_size, seq_len, d_model)
@@ -112,7 +131,9 @@ class PointWiseFeedForwardNetwork(nn.Module):
 
 
 class TransformerEncoderLayer(nn.Module):
-    def __init__(self, d_x, d_model, num_heads, d_ff, rate=0.1):
+    def __init__(
+        self, d_x: int, d_model: int, num_heads: int, d_ff: int, rate: float = 0.1
+    ):
         super(TransformerEncoderLayer, self).__init__()
 
         self.mha = MultiHeadAttention(d_x, d_x, d_x, d_model, num_heads)
@@ -122,7 +143,7 @@ class TransformerEncoderLayer(nn.Module):
         self.dropout2 = nn.Dropout(p=rate)
         self.layernorm2 = nn.LayerNorm(d_model, eps=1e-6)
 
-    def forward(self, x, mask=None):
+    def forward(self, x: Tensor, mask: Tensor | None = None) -> Tensor:
         # (batch_size, input_seq_len, d_model)
         attn_output, _ = self.mha(x, x, x, mask)
         attn_output = self.dropout1(attn_output)
@@ -138,7 +159,9 @@ class TransformerEncoderLayer(nn.Module):
 
 
 class TransformerDecoderLayer(nn.Module):
-    def __init__(self, d_x, d_model, num_heads, d_ff, rate=0.1):
+    def __init__(
+        self, d_x: int, d_model: int, num_heads: int, d_ff: int, rate: float = 0.1
+    ):
         super(TransformerDecoderLayer, self).__init__()
 
         self.mha1 = MultiHeadAttention(d_x, d_x, d_x, d_model, num_heads)
@@ -151,7 +174,9 @@ class TransformerDecoderLayer(nn.Module):
         self.dropout3 = nn.Dropout(p=rate)
         self.layernorm3 = nn.LayerNorm(d_model, eps=1e-6)
 
-    def forward(self, x, enc_output, mask=None):
+    def forward(
+        self, x: Tensor, enc_output: Tensor, mask: Tensor | None = None
+    ) -> Tensor:
         # enc_output.shape == (batch_size, input_seq_len, d_model)
 
         # (batch_size, target_seq_len, d_model)
@@ -175,7 +200,15 @@ class TransformerDecoderLayer(nn.Module):
 
 
 class TransformerEncoder(nn.Module):
-    def __init__(self, d_x, d_model, num_heads, d_ff, num_layers, rate=0.1):
+    def __init__(
+        self,
+        d_x: int,
+        d_model: int,
+        num_heads: int,
+        d_ff: int,
+        num_layers: int,
+        rate: float = 0.1,
+    ):
         super(TransformerEncoder, self).__init__()
 
         self.d_model = d_model
@@ -191,7 +224,7 @@ class TransformerEncoder(nn.Module):
                 TransformerEncoderLayer(d_model, d_model, num_heads, d_ff, rate),
             )
 
-    def forward(self, x, mask=None):
+    def forward(self, x: Tensor, mask: Tensor | None = None) -> Tensor:
         seq_len = x.shape[1]
         net = self.linear(x)
         net *= self.d_model**0.5
@@ -206,7 +239,15 @@ class TransformerEncoder(nn.Module):
 
 
 class TransformerDecoder(nn.Module):
-    def __init__(self, d_x, d_model, num_heads, d_ff, num_layers, rate=0.1):
+    def __init__(
+        self,
+        d_x: int,
+        d_model: int,
+        num_heads: int,
+        d_ff: int,
+        num_layers: int,
+        rate: float = 0.1,
+    ):
         super(TransformerDecoder, self).__init__()
 
         self.d_model = d_model
@@ -221,7 +262,9 @@ class TransformerDecoder(nn.Module):
                 TransformerDecoderLayer(d_x, d_model, num_heads, d_ff, rate),
             )
 
-    def forward(self, x, enc_output, mask=None):
+    def forward(
+        self, x: Tensor, enc_output: Tensor, mask: Tensor | None = None
+    ) -> Tensor:
         seq_len = x.shape[1]
         net = x
         net *= self.d_model**0.5
@@ -234,32 +277,44 @@ class TransformerDecoder(nn.Module):
 
 
 class PointerNetwork(nn.Module):
-    def __init__(self, d_q, d_k, d_model, attention_method="additive"):
+    def __init__(
+        self,
+        d_q: int,
+        d_k: int,
+        d_model: int,
+        attention_method: Literal["additive", "scaled_dot_product"] = "additive",
+    ):
         super(PointerNetwork, self).__init__()
 
         self.d_model = d_model
         self.attention_method = attention_method
         self.wq = nn.Linear(d_q, d_model)
         self.wk = nn.Linear(d_k, d_model)
-        self.temp = 1.0
         if attention_method == "scaled_dot_product":
             self.attention_logits = ScaledDotProductAttentionLogits()
         elif attention_method == "additive":
             self.v = nn.Parameter(torch.randn((1, d_model)), requires_grad=True)
             self.attention_logits = AdditiveAttentionLogits()
 
-    def forward(self, q, k, mask=None, clip=10.0, temp=1.0):
+    def forward(
+        self,
+        q: Tensor,
+        k: Tensor,
+        mask: Tensor | None = None,
+        clip: float = 10.0,
+        temp: float = 1.0,
+    ) -> Tensor:
         q = self.wq(q)
         q = torch.unsqueeze(q, 1)
         k = self.wk(k)  # (batch_size, seq_len, d_model)
 
         if self.attention_method == "scaled_dot_product":
             pointer_logits = self.attention_logits(
-                q, k, mask=mask, clip=clip, temp=self.temp
+                q, k, mask=mask, clip=clip, temp=temp
             )
         elif self.attention_method == "additive":
             pointer_logits = self.attention_logits(
-                q, k, self.v, mask=mask, clip=clip, temp=self.temp
+                q, k, self.v, mask=mask, clip=clip, temp=temp
             )
 
         pointer_logits = torch.squeeze(pointer_logits, 1)
@@ -268,47 +323,63 @@ class PointerNetwork(nn.Module):
 
 
 class LstmPointerNetwork(nn.Module):
-    def __init__(self, d_q, d_k, d_model, attention_method="additive"):
-        super(LstmPointerNetwork, self).__init__()
+    def __init__(
+        self,
+        d_q: int,
+        d_k: int,
+        d_model: int,
+        attention_method: Literal["additive", "scaled_dot_product"] = "additive",
+    ):
+        super().__init__()
+
+        if attention_method not in ["additive", "scaled_dot_product"]:
+            raise ValueError(f"{attention_method} is not valid attention_method")
 
         self.d_q = d_q
         self.d_model = d_model
         self.attention_method = attention_method
         self.wq = nn.LSTMCell(d_q, d_model)
-        self.wq_state = [torch.zeros((d_q, d_model)), torch.zeros((d_q, d_model))]
+        self.wq_state: tuple[Tensor, Tensor] | None = None
         self.wk = nn.Linear(d_k, d_model)
-        self.temp = 1.0
+
         if attention_method == "scaled_dot_product":
             self.attention_logits = ScaledDotProductAttentionLogits()
-        elif attention_method == "additive":
-            self.v = torch.empty(d_model, requires_grad=True)
+        else:
+            self.v = nn.Parameter(torch.empty(1, d_model))
             nn.init.kaiming_uniform_(self.v)
             self.attention_logits = AdditiveAttentionLogits()
 
-    def reset_wq_state(self):
-        self.wq_state.data *= 0
+    def reset_wq_state(self) -> None:
+        self.wq_state = None
 
-    def forward(self, q, k, mask, clip=10.0, temp=1.0):
+    def forward(
+        self,
+        q: Tensor,
+        k: Tensor,
+        mask: Tensor | None,
+        clip: float | None = 10.0,
+        temp: float = 1.0,
+    ) -> Tensor:
+        if self.wq_state is None:
+            h0 = torch.zeros(q.shape[0], self.d_model, device=q.device, dtype=q.dtype)
+            c0 = torch.zeros(q.shape[0], self.d_model, device=q.device, dtype=q.dtype)
+            self.wq_state = (h0, c0)
         q, self.wq_state = self.wq(q, self.wq_state)
-        q = torch.unsqueeze(q, 1)
-        k = self.wk(k)  # (batch_size, seq_len, d_model)
-
+        q = q.unsqueeze(1)
+        k = self.wk(k)
         if self.attention_method == "scaled_dot_product":
             pointer_logits = self.attention_logits(
-                q, k, mask=mask, clip=clip, temp=self.temp
+                q, k, mask=mask, clip=clip, temp=temp
             )
-        elif self.attention_method == "additive":
+        else:
             pointer_logits = self.attention_logits(
-                q, k, self.v, mask=mask, clip=clip, temp=self.temp
+                q, k, self.v, mask=mask, clip=clip, temp=temp
             )
-
-        pointer_logits = torch.squeeze(pointer_logits, 1)
-
-        return pointer_logits
+        return pointer_logits.squeeze(1)
 
 
 class Mlp(nn.Module):
-    def __init__(self, d_x, d_out, ds_hidden):
+    def __init__(self, d_x: int, d_out: int, ds_hidden: list[int]):
         super(Mlp, self).__init__()
 
         self.units = ds_hidden + [d_out]
@@ -322,7 +393,7 @@ class Mlp(nn.Module):
             setattr(self, "dense_{}".format(i), nn.Linear(prev_dim, next_dim))
             setattr(self, "relu_{}".format(i), nn.ReLU())
 
-    def forward(self, x):
+    def forward(self, x: Tensor) -> Tensor:
         net = x
         for i in range(len(self.units)):
             net = getattr(self, "dense_{}".format(i))(net)
@@ -332,7 +403,7 @@ class Mlp(nn.Module):
 
 
 class MlpNum(nn.Module):
-    def __init__(self, d_x, d_out, ds_hidden):
+    def __init__(self, d_x: int, d_out: int, ds_hidden: list[int]):
         super(MlpNum, self).__init__()
 
         self.units = ds_hidden + [d_out]
@@ -345,7 +416,7 @@ class MlpNum(nn.Module):
 
             setattr(self, "dense_{}".format(i), nn.Linear(prev_dim, next_dim))
 
-    def forward(self, x):
+    def forward(self, x: Tensor) -> Tensor:
         net = x
         for i in range(len(self.units)):
             net = getattr(self, "dense_{}".format(i))(net)
@@ -355,21 +426,33 @@ class MlpNum(nn.Module):
 
 class Cnn(nn.Module):
     def __init__(
-        self, filters=[32, 64, 128, 128], kernels=[1, 4, 4, 4], strides=[1, 2, 2, 2]
+        self,
+        in_channels: int = 3,
+        filters: list[int] = [32, 64, 128, 128],
+        kernels: list[int] = [1, 4, 4, 4],
+        strides: list[int] = [1, 2, 2, 2],
     ):
         super(Cnn, self).__init__()
 
         self.filters = filters
 
         for i in range(len(filters)):
+            if i > 0:
+                in_channels = filters[i - 1]
             setattr(
                 self,
                 "conv2d_{}".format(i),
-                nn.Conv2d(filters[i], kernels[i], strides=strides[i], padding="same"),
+                nn.Conv2d(
+                    in_channels,
+                    filters[i],
+                    kernels[i],
+                    stride=strides[i],
+                    padding="same",
+                ),
             )
             setattr(self, "relu_{}".format(i), nn.ReLU())
 
-    def forward(self, inputs):
+    def forward(self, inputs: Tensor) -> Tensor:
         net = inputs
         for i in range(len(self.filters)):
             net = getattr(self, "conv2d_{}".format(i))(net)
@@ -379,20 +462,27 @@ class Cnn(nn.Module):
 
 
 class ResCnn(nn.Module):
-    def __init__(self, filters=[128, 128, 128, 128], kernels=[3, 3, 3, 3]):
+    def __init__(
+        self,
+        in_channels: int = 3,
+        filters: list[int] = [128, 128, 128, 128],
+        kernels: list[int] = [3, 3, 3, 3],
+    ):
         super(ResCnn, self).__init__()
 
         self.filters = filters
 
         for i in range(len(filters)):
+            if i > 0:
+                in_channels = filters[i - 1]
             setattr(
                 self,
                 "conv2d_{}".format(i),
-                nn.Conv2d(filters[i], kernels[i], padding="same"),
+                nn.Conv2d(in_channels, filters[i], kernels[i], padding="same"),
             )
             setattr(self, "relu_{}".format(i), nn.ReLU())
 
-    def forward(self, inputs):
+    def forward(self, inputs: Tensor) -> Tensor:
         net = inputs
         for i in range(len(self.filters)):
             net = getattr(self, "conv2d_{}".format(i))(net)
