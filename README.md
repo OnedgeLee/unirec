@@ -8,7 +8,7 @@ Modular Recommendation System
 2. **State Separation (CandidateSet ↔ Slate)** – Separate “retrieve/merge quality” from “final exposure quality” for clear diagnostics and metrics mapping.
 3. **Config-first (YAML)** – Change pipeline combinations and hyper-params without touching code. Share the same config across experiments, CI, and serving.
 4. **Slate-aware Ranking** – Use sequential selection to account for position, diversity, and exploration beyond naive Top-K.
-5. **OPE-ready by Design** – Rankers must output slot-level **propensities (πₑ)** so IPS/SNIPS/DR can be run immediately.
+5. **OPE-ready by Design** – SlatePolicy must output slot-level **propensities (πₑ)** so IPS/SNIPS/DR can be run immediately.
 
 ---
 
@@ -16,13 +16,13 @@ Modular Recommendation System
 
 ### CandidateSet vs Slate
 
-- **CandidateSet**: the retrieved/merged (pre-ranked) pool the policy can choose from (hundreds–thousands).
+- **CandidateSet**: the retrieved/merged (shaped) pool the policy can choose from (hundreds–thousands).
 - **Slate**: the final, ordered list shown to the user (K items).  
 This separation lets you track 1-stage retrieval recall (e.g., CandidateRecall@M) and 2-stage final quality (NDCG/ILD/Entropy/Coverage, OPE) independently.
 
 ### PolicyOutput & Propensities
 
-Rankers must return a `PolicyOutput`:
+`SlatePolicy` must return a `PolicyOutput`:
 - `slate`: ordered item ids
 - `slot_propensity`: πₑ at each slot (soft distribution logging)
 -  `per_item`: mu (pCTR), sigma (uncertainty), score (internal score)
@@ -40,28 +40,44 @@ unirec/
     registry.py       # Plugin loader from "package.module:ClassName"
     runner.py         # Executes the YAML-declared pipeline
   plugins/
-    retrieval/
-      simple_twotower_ann.py    # Simple two-tower style retriever (cosine stub)
-    merge/
+    candidate_retriever/
+      twotower_retriever_simple.py    # Simple two-tower style retriever (cosine stub)
+    candidate_merger/
       union.py        # Weighted union + dedup → CandidateSet
-    rerank/
-      mmr.py          # MMR (pre-rank: shape CandidateSet before policy)
-    rankers/
+    candidate_shaper/
+      mmr.py          # MMR (shape: shape CandidateSet before policy)
+    slate_policy/
       bandit_ucb.py   # UCB sequential slate (residual × position × (μ+ασ) − diversity)
     eval/
       metrics.py      # NDCG / Recall / ILD / Entropy / Coverage
       ope.py          # IPS / SNIPS / DR
       evaluator.py    # OfflineEvaluator: aggregate multi-metrics
+  models/
+    encoders/
+      item_encoder.py # Item feature encoder → ItemEncoded
+      user_encoder.py # User/session encoder → UserEncoded
+    layers.py         # Shared NN blocks/utilities (MLP, attention, etc.)
+    twotower_model.py # Two-tower training model (user/item towers, losses)
+  trainers/
+  data/
+    encodable/
+      item_encodable.py # Input container for item raw features/spec
+      user_encodable.py # Input container for user context/session features
+    encoded/
+      item_encoded.py # Training-time item embedding (Tensor)
+      user_encoded.py # Training-time user embedding (Tensor)
   configs/
     exp_dual_ucb.yaml # Example pipeline
   scripts/
     serve.py          # Run a single context → pipeline → slate JSON
     offline_eval.py   # Batch users → slates → metrics report
     build_ann.py      # Index build placeholder
-  data/
-    item_emb.npy      # Demo embeddings (random)
-    item_ids.json     # (Optional) id mapping aligned to embeddings
-requirements.txt
+  resources/
+    item_emb.npy    # Demo embeddings (random)
+    item_ids.json   # (Optional) id mapping aligned to embeddings
+pyproject.toml
+uv.lock
+.python-version
 ```
 
 **Why this split?**  
@@ -109,14 +125,14 @@ Output is a JSON report with NDCG/Recall/ILD/Entropy/Coverage.
 ```python
 # core/interfaces.py (summary)
 
-class Retriever(Component):
+class CandidateRetriever(Component):
     def search_one(self, state, k) -> list[Candidate]: ...
 
-class Merger(Component):
+class CandidateMerger(Component):
     def merge(self, pools, user_id, topk) -> CandidateSet: ...
 
-class Reranker(Component):  # Pre-rank: operate on CandidateSet
-    def rerank(self, state) -> CandidateSet: ...
+class CandidateShaper(Component):  # Shape(Pre-rank): operate on CandidateSet
+    def shape(self, state) -> CandidateSet: ...
 
 @dataclass
 class PolicyOutput:
@@ -125,7 +141,7 @@ class PolicyOutput:
     per_item: list[PerItemDecision]  # mu, sigma, score, propensity
     aux: dict[str, Any] = field(default_factory=dict)
 
-class Ranker(Component):
+class SlatePolicy(Component):
     def select_slate(self, state) -> PolicyOutput: ...
 ```
 
@@ -143,53 +159,53 @@ resources:
   categories: {}
 
 pipeline:
-  - id: retriever1
-    kind: retriever
-    impl: unirec.plugins.retrieval.simple_twotower_ann:SimpleTwotowerAnn
+  - id: retrieve1
+    kind: candidate_retriever
+    impl: unirec.plugins.candidate_retriever.twotower_retriever_simple:TwotowerRetrieverSimple
     params: { topk: 500 }
 
-  - id: retriever2
-    kind: retriever
-    impl: unirec.plugins.retrieval.simple_twotower_ann:SimpleTwotowerAnn
+  - id: retrieve2
+    kind: candidate_retriever
+    impl: unirec.plugins.candidate_retriever.twotower_retriever_simple:TwotowerRetrieverSimple
     params: { topk: 500 }
 
   - id: merge
-    kind: merger
-    impl: unirec.plugins.merge.union:WeightedUnion
+    kind: candidate_merger
+    impl: unirec.plugins.candidate_merger.union:WeightedUnion
     params:
-      weights: { retriever1: 0.6, retriever2: 0.4 }
+      weights: { retrieve1: 0.6, retrieve2: 0.4 }
       topk: 800
 
-  - id: prerank
-    kind: reranker
-    impl: unirec.plugins.rerank.mmr:MMR
+  - id: shape
+    kind: candidate_shaper
+    impl: unirec.plugins.candidate_shaper.mmr:MMR
     params: { lambda: 0.2 }
 
-  - id: ranker
-    kind: ranker
-    impl: unirec.plugins.rankers.bandit_ucb:UCBSequentialSlate
+  - id: policy
+    kind: slate_policy
+    impl: unirec.plugins.slate_policy.bandit_ucb:UCBSequentialSlate
     params:
       K: 10
       alpha: 0.25
       position_weights: [1.0, 0.85, 0.75, 0.68, 0.62, 0.57, 0.53, 0.50, 0.47, 0.45]
       diversity_lambda: 0.15
 
-  - id: evaluator
+  - id: evaluate
     kind: evaluator
     impl: unirec.plugins.eval.evaluator:OfflineEvaluator
     params: { K: 10 }
 ```
-Why YAML-first? Swap retrievers/rankers/rerankers and tune hyper-params without code changes; share the same config across notebooks, CI, and serving.
+Why YAML-first? Swap retrievers/shapers/policies and tune hyper-params without code changes; share the same config across notebooks, CI, and serving.
 
 ## Included Plugins
 
-- **Retrieval** – SimpleTwotowerAnn (cosine stub)
-Simple retriever with cosine similarity.
-- **Merge** – WeightedUnion (weighted mix + dedup)
+- **CandidateRetriever** – TwotowerRetrieverSimple (cosine stub)
+Simple candidate retriever with cosine similarity.
+- **CandidateMerger** – WeightedUnion (weighted mix + dedup)
 Practical for combining “freshness vs long-term taste” retrievers.
-- **Pre-rank** – MMR
+- **CandidateShaper** – MMR
 Shapes the CandidateSet to help the policy make better choices.
-- **Ranker** – UCBSequentialSlate
+- **SlatePolicy** – UCBSequentialSlate
 Score = residual × position × (μ + α·σ) − diversity_penalty, logs per-slot propensities.
 - **Eval/OPE** – NDCG/Recall/ILD/Entropy/Coverage, IPS/SNIPS/DR (skeleton)
 

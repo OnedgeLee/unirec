@@ -2,14 +2,14 @@ import numpy as np
 from numpy.typing import NDArray
 from typing import Any, cast, override
 from ...core.registry import register
-from ...core.interfaces import Reranker
+from ...core.interfaces import CandidateShaper
 from ...core.state import Candidate, CandidateSet, PipelineState, Slate
 from ..common import ArraySource, cosine, load_array
 
 
-@register("reranker")
-class MMR(Reranker):
-    """Maximal Marginal Relevance reranker."""
+@register("candidate_shaper")
+class MMR(CandidateShaper):
+    """Maximal Marginal Relevance candidate shaper."""
 
     @override
     def __init__(self, **params: Any):
@@ -24,7 +24,7 @@ class MMR(Reranker):
         )
 
     @override
-    def rerank(self, state: PipelineState) -> CandidateSet:
+    def shape(self, state: PipelineState) -> CandidateSet:
         if state.candset is None:
             raise KeyError(
                 f"{type(self).__name__}: missing required PipelineState 'candset'"

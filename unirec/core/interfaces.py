@@ -1,8 +1,9 @@
-from __future__ import annotations
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from collections.abc import Iterable
-from typing import Any, final
+from numpy.typing import NDArray
+from torch import Tensor
+from typing import Any, Generic, Mapping, TypeVar, final
 from .state import PipelineState, Candidate, CandidateSet, Slate
 
 
@@ -86,6 +87,35 @@ class Trainable(ABC):
         pass
 
 
+class Encoded(ABC):
+    @property
+    @abstractmethod
+    def feature(self) -> Tensor: ...
+
+
+class Encodable(ABC):
+    def __init__(self, spec: Mapping[str, Any], data: Any):
+        self.__spec: Mapping[str, Any] = spec
+        self.__data: Any = data
+
+    @property
+    def spec(self) -> Mapping[str, Any]:
+        return self.__spec
+
+    @property
+    def data(self) -> Any:
+        return self.__data
+
+
+TEncodable = TypeVar("TEncodable", bound=Encodable)
+TEncoded = TypeVar("TEncoded", bound=Encoded)
+
+
+class Encoder(ABC, Generic[TEncodable, TEncoded]):
+    @abstractmethod
+    def encode(self, encodable: TEncodable, **kwargs: Any) -> TEncoded: ...
+
+
 class IndexOps(ABC):
     def add_items(self, items: Iterable[tuple[int, Any]]):  # (item_id, vector/feat)
         raise NotImplementedError
@@ -101,8 +131,8 @@ class IndexOps(ABC):
 
 
 # -------- Concrete contracts per role --------
-class Retriever(Component, IndexOps):
-    component_kind: str = "retriever"
+class CandidateRetriever(Component, IndexOps):
+    component_kind: str = "candidate_retriever"
 
     @abstractmethod
     def search_one(self, state: PipelineState, k: int) -> list[Candidate]:
@@ -118,8 +148,8 @@ class Retriever(Component, IndexOps):
         return state
 
 
-class Merger(Component):
-    component_kind: str = "merger"
+class CandidateMerger(Component):
+    component_kind: str = "candidate_merger"
 
     @abstractmethod
     def merge(
@@ -135,8 +165,20 @@ class Merger(Component):
         return state
 
 
-class Ranker(Component):
-    component_kind: str = "ranker"
+class CandidateShaper(Component):
+    component_kind: str = "candidate_shaper"
+
+    @abstractmethod
+    def shape(self, state: PipelineState) -> CandidateSet: ...
+
+    @final
+    def run(self, state: PipelineState) -> PipelineState:
+        state.candset = self.shape(state)
+        return state
+
+
+class SlatePolicy(Component):
+    component_kind: str = "slate_policy"
 
     @abstractmethod
     def select_slate(self, state: PipelineState) -> PolicyOutput:
@@ -149,18 +191,6 @@ class Ranker(Component):
         state.slate = out.slate
         # Contract: store policy diagnostics for OPE/logging
         state.logs.setdefault("policy", {})[self.id] = out
-        return state
-
-
-class Reranker(Component):
-    component_kind: str = "reranker"
-
-    @abstractmethod
-    def rerank(self, state: PipelineState) -> CandidateSet: ...
-
-    @final
-    def run(self, state: PipelineState) -> PipelineState:
-        state.candset = self.rerank(state)
         return state
 
 

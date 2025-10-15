@@ -41,22 +41,6 @@ def encode_user(
     return v / (np.linalg.norm(v) + 1e-9)
 
 
-def predict_ctr(
-    context: dict[str, Any],
-    item_vec: NDArray[np.float32],
-    user_vec: NDArray[np.float32],
-) -> float:
-    """CTR predictor: sigmoid of scaled cosine. Replace with your ranker."""
-    s: float = cosine(user_vec, item_vec)
-    return 1.0 / (1.0 + np.exp(-3.0 * s))
-
-
-def uncertainty_stub(context: dict[str, Any], item_id: int) -> float:
-    """Very rough uncertainty proxy: smaller for head items, larger for tail (if freq provided)."""
-    freq: float = context.get("freq", {}).get(item_id, 5.0)
-    return 1.0 / (freq**0.5)
-
-
 def load_array(source: ArraySource) -> NDArray[np.float32]:
     if isinstance(source, (str, bytes, bytearray, memoryview, PathLike)):
         return np.load(source).astype(np.float32)
