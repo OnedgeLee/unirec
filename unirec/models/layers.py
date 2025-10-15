@@ -1,6 +1,8 @@
+import math
 import torch
 import torch.nn as nn
 from torch import Tensor
+from torch.nn.modules.utils import _pair
 from typing import Literal
 
 
@@ -220,7 +222,7 @@ class TransformerEncoder(nn.Module):
         for i in range(num_layers):
             setattr(
                 self,
-                "enc_layers_{}".format(i),
+                f"enc_layers_{i}",
                 TransformerEncoderLayer(d_model, d_model, num_heads, d_ff, rate),
             )
 
@@ -232,7 +234,7 @@ class TransformerEncoder(nn.Module):
         net = self.dropout(net)
 
         for i in range(self.num_layers):
-            net = getattr(self, "enc_layers_{}".format(i))(net, mask)
+            net = getattr(self, f"enc_layers_{i}")(net, mask)
         out = net
 
         return out  # (batch_size, input_seq_len, d_model)
@@ -258,7 +260,7 @@ class TransformerDecoder(nn.Module):
         for i in range(self.num_layers):
             setattr(
                 self,
-                "dec_layers_{}".format(i),
+                f"dec_layers_{i}",
                 TransformerDecoderLayer(d_x, d_model, num_heads, d_ff, rate),
             )
 
@@ -271,7 +273,7 @@ class TransformerDecoder(nn.Module):
         net = self.dropout(net)
 
         for i in range(self.num_layers):
-            net = getattr(self, "dec_layers_{}".format(i))(net, enc_output, mask)
+            net = getattr(self, f"dec_layers_{i}")(net, enc_output, mask)
         out = net
         return out  # (batch_size, target_seq_len, d_model)
 
@@ -393,14 +395,14 @@ class Mlp(nn.Module):
             else:
                 prev_dim = self.units[i - 1]
 
-            setattr(self, "dense_{}".format(i), nn.Linear(prev_dim, next_dim))
-            setattr(self, "relu_{}".format(i), nn.ReLU())
+            setattr(self, f"dense_{i}", nn.Linear(prev_dim, next_dim))
+            setattr(self, f"relu_{i}", nn.ReLU())
 
     def forward(self, x: Tensor) -> Tensor:
         net = x
         for i in range(len(self.units)):
-            net = getattr(self, "dense_{}".format(i))(net)
-            net = getattr(self, "relu_{}".format(i))(net)
+            net = getattr(self, f"dense_{i}")(net)
+            net = getattr(self, f"relu_{i}")(net)
         out = net
         return out
 
@@ -417,14 +419,29 @@ class MlpNum(nn.Module):
             else:
                 prev_dim = self.units[i - 1]
 
-            setattr(self, "dense_{}".format(i), nn.Linear(prev_dim, next_dim))
+            setattr(self, f"dense_{i}", nn.Linear(prev_dim, next_dim))
 
     def forward(self, x: Tensor) -> Tensor:
         net = x
         for i in range(len(self.units)):
-            net = getattr(self, "dense_{}".format(i))(net)
+            net = getattr(self, f"dense_{i}")(net)
         out = net
         return out
+
+
+def _same_pad(
+    h: int, w: int, k: tuple[int, int], s: tuple[int, int], d: tuple[int, int]
+) -> tuple[int, int, int, int]:
+    # Remaining 1 pixel will be added to right/below (Upper rule)
+    out_h = math.ceil(h / s[0])
+    out_w = math.ceil(w / s[1])
+    pad_h = max((out_h - 1) * s[0] + (k[0] - 1) * d[0] + 1 - h, 0)
+    pad_w = max((out_w - 1) * s[1] + (k[1] - 1) * d[1] + 1 - w, 0)
+    top = pad_h // 2
+    bottom = pad_h - top
+    left = pad_w // 2
+    right = pad_w - left
+    return (left, right, top, bottom)
 
 
 class Cnn(nn.Module):
@@ -444,22 +461,31 @@ class Cnn(nn.Module):
                 in_channels = filters[i - 1]
             setattr(
                 self,
-                "conv2d_{}".format(i),
+                f"conv2d_{i}",
                 nn.Conv2d(
                     in_channels,
                     filters[i],
                     kernels[i],
                     stride=strides[i],
-                    padding="same",
+                    padding=0,
                 ),
             )
-            setattr(self, "relu_{}".format(i), nn.ReLU())
+            setattr(self, f"relu_{i}", nn.ReLU())
 
     def forward(self, inputs: Tensor) -> Tensor:
         net = inputs
+        h, w = net.shape[-2:]
         for i in range(len(self.filters)):
-            net = getattr(self, "conv2d_{}".format(i))(net)
-            net = getattr(self, "relu_{}".format(i))(net)
+            conv: nn.Conv2d = getattr(self, f"conv2d_{i}")
+            k = _pair(conv.kernel_size)
+            s = _pair(conv.stride)
+            d = _pair(conv.dilation)
+            pad = _same_pad(h, w, k, s, d)
+            if any(pad):
+                net = nn.functional.pad(net, pad)
+            net = conv(net)
+
+            net = getattr(self, f"relu_{i}")(net)
         out = net
         return out
 
@@ -480,19 +506,19 @@ class ResCnn(nn.Module):
                 in_channels = filters[i - 1]
             setattr(
                 self,
-                "conv2d_{}".format(i),
+                f"conv2d_{i}",
                 nn.Conv2d(in_channels, filters[i], kernels[i], padding="same"),
             )
-            setattr(self, "relu_{}".format(i), nn.ReLU())
+            setattr(self, f"relu_{i}", nn.ReLU())
 
     def forward(self, inputs: Tensor) -> Tensor:
         net = inputs
         for i in range(len(self.filters)):
-            net = getattr(self, "conv2d_{}".format(i))(net)
+            net = getattr(self, f"conv2d_{i}")(net)
             if i == 0:
                 residual = net
             else:
                 residual += net
-            net = getattr(self, "relu_{}".format(i))(residual)
+            net = getattr(self, f"relu_{i}")(residual)
         out = net
         return out
