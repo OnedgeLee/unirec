@@ -1,10 +1,11 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from collections.abc import Iterable
-from numpy.typing import NDArray
 from torch import Tensor
-from typing import Any, Generic, Mapping, TypeVar, final
+from typing import Any, ClassVar, Generic, Mapping, TypeVar, final
+from .fingerprint import Fingerprinter
 from .state import PipelineState, Candidate, CandidateSet, Slate
+from .version import Versioned
 
 
 # -------- Shared data structures for policy outputs (for OPE/logging) --------
@@ -40,7 +41,7 @@ class Component(ABC):
       - close(): optional teardown
     """
 
-    component_kind: str = "component"
+    component_kind: ClassVar[str] = "component"
 
     def __init__(self, **params: Any):
         self.params: dict[str, Any] = params
@@ -51,16 +52,31 @@ class Component(ABC):
     def require_param(
         self, key: str, expected: type, default_value: Any | None = None
     ) -> Any:
-        if (key not in self.params) and (default_value is None):
-            raise KeyError(f"{type(self).__name__}: missing required param '{key}'")
-        else:
+        if key in self.params:
+            val = self.params[key]
+        elif default_value is not None:
             self.params[key] = default_value
+            val = default_value
+        else:
+            raise KeyError(f"{type(self).__name__}: missing required param '{key}'")
 
         val = self.params.get(key)
         if not isinstance(val, expected):
             raise TypeError(
                 f"{self.__class__.__name__}: param '{key}' must be {expected}, got {type(val).__name__}"
             )
+        return val
+
+    @final
+    def optional_param(self, key: str, expected: type) -> Any | None:
+        if key not in self.params:
+            return None
+        val = self.params.get(key)
+        if not isinstance(val, expected):
+            raise TypeError(
+                f"{self.__class__.__name__}: param '{key}' must be {expected}, got {type(val).__name__}"
+            )
+
         return val
 
     def setup(self, resources: dict[str, Any]):
@@ -87,33 +103,136 @@ class Trainable(ABC):
         pass
 
 
-class Encoded(ABC):
+class Context(Versioned):
     @property
     @abstractmethod
-    def feature(self) -> Tensor: ...
+    def meta(self) -> Mapping[str, Any]: ...
 
 
-class Encodable(ABC):
-    def __init__(self, spec: Mapping[str, Any], data: Any):
-        self.__spec: Mapping[str, Any] = spec
-        self.__data: Any = data
+TContext = TypeVar("TContext", bound=Context)
 
+
+class Profile(Context, Generic[TContext]):
     @property
-    def spec(self) -> Mapping[str, Any]:
-        return self.__spec
-
-    @property
-    def data(self) -> Any:
-        return self.__data
-
-
-TEncodable = TypeVar("TEncodable", bound=Encodable)
-TEncoded = TypeVar("TEncoded", bound=Encoded)
-
-
-class Encoder(ABC, Generic[TEncodable, TEncoded]):
     @abstractmethod
-    def encode(self, encodable: TEncodable, **kwargs: Any) -> TEncoded: ...
+    def id(self) -> int: ...
+
+
+class Session(Context, Generic[TContext]): ...
+
+
+class Request(Context): ...
+
+
+class Encodable(Versioned, Generic[TContext]):
+    """Encodable payload that *is a Context* via delegation.
+
+    This base holds a concrete context instance and exposes profile/session
+    by delegating to it. Subclasses can add fields/methods needed for encoding.
+    """
+
+    def __init__(
+        self,
+        profile: Profile[TContext],
+        session: Session[TContext],
+        meta: Mapping[str, Any] | None = None,
+    ):
+        self._profile: Profile[TContext] = profile
+        self._session: Session[TContext] = session
+        self._meta: Mapping[str, Any] = {} if meta is None else meta
+
+        self._fingerprinter: Fingerprinter = Fingerprinter()
+        self._vec_profile_cached: dict[str, Tensor] = {}
+        self._vec_session_cached: dict[str, Tensor] = {}
+        self._vec_enc_cached: dict[tuple[str, str | None], Tensor] = {}
+
+    @property
+    def profile(self) -> Profile[TContext]:
+        return self._profile
+
+    @property
+    def session(self) -> Session[TContext]:
+        return self._session
+
+    @property
+    def meta(self) -> Mapping[str, Any]:
+        return self._meta
+
+    def cache(
+        self,
+        encoder: "Encoder[TContext]",
+        vec_profile: Tensor,
+        vec_session: Tensor,
+        vec_enc: Tensor,
+        request: Request | None = None,
+    ):
+        self._vec_profile_cached[self._fingerprinter.key(encoder)] = vec_profile
+        self._vec_session_cached[self._fingerprinter.key(encoder)] = vec_session
+        self._vec_enc_cached[
+            (
+                self._fingerprinter.key(encoder),
+                None if request is None else self._fingerprinter.key(request),
+            )
+        ] = vec_enc
+
+    def get_vec_profile_cached(self, encoder_key: str) -> Tensor | None:
+        return self._vec_profile_cached.get(encoder_key)
+
+    def get_vec_session_cached(self, encoder_key: str) -> Tensor | None:
+        return self._vec_session_cached.get(encoder_key)
+
+    def get_vec_enc_cached(
+        self, encoder_key: str, request_key: str | None
+    ) -> Tensor | None:
+        return self._vec_enc_cached.get((encoder_key, request_key))
+
+
+class Encoded(Versioned, Generic[TContext]):
+    """Encoded output that *shares the same Context* by referencing origin.
+
+    Encoded delegates profile/session to the origin Encodable; request is optional and carried only for logging/repro.
+    """
+
+    def __init__(
+        self,
+        vector: Tensor,
+        origin: Encodable[TContext],
+        request: Request | None = None,
+    ):
+        self._vector: Tensor = vector
+        self._origin: Encodable[TContext] = origin
+        self._request: Request | None = request
+
+    @property
+    def vector(self) -> Tensor:
+        return self._vector
+
+    @property
+    def profile(self) -> Profile[TContext]:
+        return self._origin.profile
+
+    @property
+    def session(self) -> Session[TContext]:
+        return self._origin.session
+
+    @property
+    def meta(self) -> Mapping[str, Any]:
+        return self._origin.meta
+
+    @property
+    def request(self) -> Request | None:
+        return self._request
+
+
+class Encoder(Versioned, Generic[TContext]):
+    @abstractmethod
+    def encode(
+        self,
+        encodable: Encodable[TContext],
+        *,
+        request: Request | None = None,
+        **kwargs: Any,
+    ) -> Encoded[TContext]: ...
 
 
 class IndexOps(ABC):
@@ -132,7 +251,7 @@ class IndexOps(ABC):
 
 # -------- Concrete contracts per role --------
 class CandidateRetriever(Component, IndexOps):
-    component_kind: str = "candidate_retriever"
+    component_kind: ClassVar[str] = "candidate_retriever"
 
     @abstractmethod
     def search_one(self, state: PipelineState, k: int) -> list[Candidate]:
@@ -149,7 +268,7 @@ class CandidateRetriever(Component, IndexOps):
 
 
 class CandidateMerger(Component):
-    component_kind: str = "candidate_merger"
+    component_kind: ClassVar[str] = "candidate_merger"
 
     @abstractmethod
     def merge(
@@ -160,13 +279,13 @@ class CandidateMerger(Component):
     def run(self, state: PipelineState) -> PipelineState:
         pools: dict[str, list[Candidate]] = state.logs.get("retrieval", {})
         topk: int = int(self.params.get("topk", 800))
-        user_id: int = state.context.get("user_id", -1)
+        user_id: int = state.user.profile.id
         state.candset = self.merge(pools, user_id=user_id, topk=topk)
         return state
 
 
 class CandidateShaper(Component):
-    component_kind: str = "candidate_shaper"
+    component_kind: ClassVar[str] = "candidate_shaper"
 
     @abstractmethod
     def shape(self, state: PipelineState) -> CandidateSet: ...
@@ -178,7 +297,7 @@ class CandidateShaper(Component):
 
 
 class SlatePolicy(Component):
-    component_kind: str = "slate_policy"
+    component_kind: ClassVar[str] = "slate_policy"
 
     @abstractmethod
     def select_slate(self, state: PipelineState) -> PolicyOutput:
@@ -195,7 +314,7 @@ class SlatePolicy(Component):
 
 
 class Evaluator(Component):
-    component_kind: str = "evaluator"
+    component_kind: ClassVar[str] = "evaluator"
 
     @abstractmethod
     def evaluate(self, state: PipelineState) -> dict[str, Any]: ...
@@ -208,7 +327,7 @@ class Evaluator(Component):
 
 
 class OPEEstimator(Component):
-    component_kind: str = "ope"
+    component_kind: ClassVar[str] = "ope"
 
     @abstractmethod
     def estimate(self, state: PipelineState) -> dict[str, Any]: ...

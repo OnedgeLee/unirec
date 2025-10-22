@@ -37,7 +37,7 @@ class UCBSequentialSlate(SlatePolicy):
     def select_slate(self, state: PipelineState):
         if state.candset is None or not state.candset.candidates:
             return PolicyOutput(
-                Slate(user_id=state.context.get("user_id", -1), items=[]), [], [], {}
+                Slate(user_id=state.user.profile.id, items=[]), [], [], {}
             )
         pool: list[Candidate] = list(state.candset.candidates)
         chosen: list[Candidate] = []

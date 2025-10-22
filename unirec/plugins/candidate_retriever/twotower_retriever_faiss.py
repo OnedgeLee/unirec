@@ -20,9 +20,10 @@ class TwotowerRetrieverFaiss(CandidateRetriever):
         self.topk: int = self.require_param("K", int, 500)
         self.use_gpu: bool = self.require_param("use_gpu", bool, False)
         self.gpu_id: int = self.require_param("gpu", int, 0)
+        self.query_normalized: bool = self.require_param("query_normalized", bool, True)
+
         self.nprobe: int | None = self.optional_param("nprobe", int)
         self.ef_search: int | None = self.optional_param("ef_search", int)
-        self.query_normalized: bool = self.require_param("query_normalized", True)
 
         # sets on setup with resources
         self.index: Any = None
@@ -67,10 +68,13 @@ class TwotowerRetrieverFaiss(CandidateRetriever):
         if self.index is None:
             raise RuntimeError("FAISS index not loaded")
         d = int(self.dim or 0)
-        user_encodable: UserEncodable = UserEncodable(state.user)
+        user_encodable: UserEncodable = state.user
         u: NDArray[np.float32] = (
             self.user_encoder.encode(
-                user_encodable, self.item_memmap, d, request=state.request
+                user_encodable,
+                request=state.request,
+                item_memmap=self.item_memmap,
+                emb_dim=d,
             )
             .vector.numpy()
             .astype(np.float32, copy=False)
