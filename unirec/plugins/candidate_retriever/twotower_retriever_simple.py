@@ -4,7 +4,9 @@ from typing import Any, cast, override
 from ...core.registry import register
 from ...core.interfaces import CandidateRetriever
 from ...core.state import Candidate, PipelineState
-from ..common import ArraySource, encode_user, load_array
+from ..common import ArraySource, load_array
+from ...data.encodable import UserEncodable
+from ...models.encoders import ItemEncoder, UserEncoder
 
 
 @register("candidate_retriever")
@@ -14,6 +16,8 @@ class TwotowerRetrieverSimple(CandidateRetriever):
     @override
     def __init__(self, **params: Any):
         super().__init__(**params)
+        self.user_encoder: UserEncoder = self.require_param("user_encoder", UserEncoder)
+        self.item_encoder: ItemEncoder = self.require_param("item_encoder", ItemEncoder)
         self.topk: int = self.require_param("K", int, 500)
 
     @override
@@ -30,7 +34,12 @@ class TwotowerRetrieverSimple(CandidateRetriever):
     def search_one(self, state: PipelineState, k: int) -> list[Candidate]:
         embs: NDArray[np.float32] = self.item_emb
         d: int = embs.shape[1]
-        u: NDArray[np.float32] = encode_user(state.context, embs, d)
+        user_encodable: UserEncodable = UserEncodable(state.user)
+        u: NDArray[np.float32] = (
+            self.user_encoder.encode(user_encodable, embs, d, request=state.request)
+            .vector.numpy()
+            .astype(np.float32, copy=False)
+        )
         sims: NDArray[np.float32] = (embs @ u) / (
             np.linalg.norm(embs, axis=1) * (np.linalg.norm(u) + 1e-9)
         )

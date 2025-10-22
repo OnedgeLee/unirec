@@ -1,5 +1,7 @@
 from dataclasses import dataclass, field
 from typing import Any, final
+from ..data.context import RequestContext
+from ..data.encodable import UserEncodable
 
 
 @dataclass
@@ -32,7 +34,9 @@ class Slate:
 
 @dataclass
 class PipelineState:
-    context: dict[str, Any]
+    user: UserEncodable
+    context: dict[str, Any] # Temporal context for incomplete scaffolding
+    request: RequestContext | None = None
     candset: CandidateSet | None = None
     slate: Slate | None = None
     logs: dict[str, Any] = field(default_factory=dict)
