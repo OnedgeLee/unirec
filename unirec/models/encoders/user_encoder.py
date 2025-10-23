@@ -1,7 +1,7 @@
 import numpy as np
 from numpy.typing import NDArray
 from torch import Tensor
-from typing import Any, ClassVar, cast
+from typing import Any, ClassVar, cast, override
 from ...core.interfaces import Encodable, Encoded, Encoder, Request
 from ...core.version import Version
 from ...data.context import RequestContext, UserContext
@@ -12,6 +12,7 @@ from ...data.encoded import UserEncoded
 class UserEncoder(Encoder[UserContext]):
     VERSION: ClassVar[Version] = Version("0.0.0")
 
+    @override
     def encode(
         self,
         encodable: Encodable[UserContext],
@@ -33,4 +34,4 @@ class UserEncoder(Encoder[UserContext]):
         item_memmap: NDArray[np.float32],
         emb_dim: int,
     ) -> UserEncoded:
-        return UserEncoded(Tensor())
+        return UserEncoded(Tensor(), encodable, request)

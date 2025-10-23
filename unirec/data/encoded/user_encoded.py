@@ -1,6 +1,6 @@
 from torch import Tensor
-from typing import ClassVar
-from ...core.interfaces import Encoded
+from typing import ClassVar, override
+from ...core.interfaces import Encodable, Encoded, Request
 from ...core.version import Version
 from ...data.context import UserContext
 
@@ -8,9 +8,11 @@ from ...data.context import UserContext
 class UserEncoded(Encoded[UserContext]):
     VERSION: ClassVar[Version] = Version("0.0.0")
 
-    def __init__(self, vector: Tensor):
-        self.__vector: Tensor = vector
-
-    @property
-    def vector(self) -> Tensor:
-        return self.__vector
+    @override
+    def __init__(
+        self,
+        vector: Tensor,
+        origin: Encodable[UserContext],
+        request: Request | None = None,
+    ):
+        super().__init__(vector, origin, request)
