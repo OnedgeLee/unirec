@@ -60,7 +60,6 @@ class Component(ABC):
         else:
             raise KeyError(f"{type(self).__name__}: missing required param '{key}'")
 
-        val = self.params.get(key)
         if not isinstance(val, expected):
             raise TypeError(
                 f"{self.__class__.__name__}: param '{key}' must be {expected}, got {type(val).__name__}"
