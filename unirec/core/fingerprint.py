@@ -8,7 +8,7 @@ import numpy as np
 import torch
 from dataclasses import dataclass, field, fields, is_dataclass
 from functools import cached_property
-from typing import Any, Callable, Iterable, Mapping, Sequence, Tuple, ClassVar
+from typing import Any, Callable, Iterable, Mapping, Sequence, Tuple, ClassVar, final
 from torch import Tensor
 from packaging.version import Version
 from .version import Versioned
@@ -76,6 +76,7 @@ def fingerprint_property(
     )
 
 
+@final
 @dataclass(frozen=True, slots=True)
 class Fingerprint:
     json_str: str
@@ -84,9 +85,10 @@ class Fingerprint:
     fqn: str
     cls_version: str | None = None
 
+    def __init_subclass__(cls, **kwargs):
+        raise TypeError(f"{Fingerprint.__name__} is final and cannot be subclassed")
+
     def __post_init__(self) -> None:
-        if self.hash_len < 8:
-            raise ValueError("hash_len must be >= 8")
         if not self.fqn:
             raise ValueError("fqn must be non-empty")
 
@@ -167,10 +169,12 @@ class Fingerprint:
         )
 
 
+@final
 @dataclass(slots=True)
 class Fingerprinter(Versioned):
     VERSION: ClassVar[Version] = Version("0.0.0")
     FLOAT_DECIMALS: ClassVar[int] = 6
+    MIN_HASH_LEN: ClassVar[int] = 12
     _HEAD_KEYS: ClassVar[tuple[str, ...]] = (
         "__fqn__",
         "__hash_algo__",
@@ -178,9 +182,33 @@ class Fingerprinter(Versioned):
         "__fingerprint_ver__",
         "__cls_version__",
     )
+    _ALGO_MAX_HEX: ClassVar[dict[str, int]] = {
+        "blake2s": 64,
+        "blake2b": 128,
+        "sha256": 64,
+        "sha1": 40,
+        "md5": 32,
+    }
 
     hash_algo: str = "blake2s"
     hash_len: int = 32
+
+    def __init_subclass__(cls, **kwargs):
+        raise TypeError(f"{Fingerprinter.__name__} is final and cannot be subclassed")
+
+    def __post_init__(self) -> None:
+        if self.hash_len < self.MIN_HASH_LEN:
+            raise ValueError(
+                f"hash_len must be ≥ {self.MIN_HASH_LEN} (got {self.hash_len})"
+            )
+        max_hex = self._ALGO_MAX_HEX.get(self.hash_algo)
+        if max_hex is None:
+            pass
+        else:
+            if self.hash_len > max_hex:
+                raise ValueError(
+                    f"{self.hash_algo} hexdigest max is {max_hex}, got {self.hash_len}"
+                )
 
     def make(
         self,
@@ -358,9 +386,10 @@ class Fingerprinter(Versioned):
         )
         return items_sorted
 
-    def _guard_len(self, n: int) -> None:
-        if n < 8:
-            raise ValueError("hash_len must be >= 8")
+    @classmethod
+    def _guard_len(cls, n: int) -> None:
+        if n < cls.MIN_HASH_LEN:
+            raise ValueError(f"hash_len must be >= {cls.MIN_HASH_LEN}")
 
     def _fqn(self, obj_or_cls: Any) -> str:
         cls = obj_or_cls if isinstance(obj_or_cls, type) else type(obj_or_cls)
