@@ -63,6 +63,8 @@ class TwotowerRetrieverFaiss(CandidateRetriever):
         if emb_path and os.path.exists(emb_path):
             self.item_memmap = np.load(emb_path, mmap_mode="r")
 
+        self.user_encoder.setup(self.dim, self.item_memmap)
+
     @override
     def search_one(self, state: PipelineState, k: int) -> list[Candidate]:
         if self.index is None:
@@ -70,12 +72,7 @@ class TwotowerRetrieverFaiss(CandidateRetriever):
         d = int(self.dim or 0)
         user_encodable: UserEncodable = state.user
         u: NDArray[np.float32] = (
-            self.user_encoder.encode(
-                user_encodable,
-                request=state.request,
-                item_memmap=self.item_memmap,
-                emb_dim=d,
-            )
+            self.user_encoder.encode(user_encodable, request=state.request)
             .vector.numpy()
             .astype(np.float32, copy=False)
         )

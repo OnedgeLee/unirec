@@ -12,6 +12,10 @@ from ...data.encoded import UserEncoded
 class UserEncoder(Encoder[UserContext]):
     VERSION: ClassVar[Version] = Version("0.0.0")
 
+    def setup(self, emb_dim: int, item_memmap: NDArray[np.float32]):
+        self.emb_dim = emb_dim
+        self.item_memmap = item_memmap
+
     @override
     def encode(
         self,
@@ -21,17 +25,10 @@ class UserEncoder(Encoder[UserContext]):
         **kwargs: Any,
     ) -> Encoded[UserContext]:
         return self.encode_user(
-            cast(UserEncodable, encodable),
-            cast(RequestContext, request),
-            cast(NDArray[np.float32], kwargs.get("item_memmap")),
-            cast(int, kwargs.get("emb_dim")),
+            cast(UserEncodable, encodable), cast(RequestContext, request)
         )
 
     def encode_user(
-        self,
-        encodable: UserEncodable,
-        request: RequestContext,
-        item_memmap: NDArray[np.float32],
-        emb_dim: int,
+        self, encodable: UserEncodable, request: RequestContext
     ) -> UserEncoded:
         return UserEncoded(Tensor(), encodable, request)

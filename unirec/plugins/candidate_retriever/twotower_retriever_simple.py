@@ -30,15 +30,15 @@ class TwotowerRetrieverSimple(CandidateRetriever):
             "item_ids"
         )  # optional list same order as embeddings
 
+        self.user_encoder.setup(self.item_emb.shape[1], self.item_emb)
+
     @override
     def search_one(self, state: PipelineState, k: int) -> list[Candidate]:
         embs: NDArray[np.float32] = self.item_emb
         d: int = embs.shape[1]
         user_encodable: UserEncodable = state.user
         u: NDArray[np.float32] = (
-            self.user_encoder.encode(
-                user_encodable, request=state.request, item_memmap=embs, emb_dim=d
-            )
+            self.user_encoder.encode(user_encodable, request=state.request)
             .vector.numpy()
             .astype(np.float32, copy=False)
         )
