@@ -180,7 +180,7 @@ class Fingerprinter(Versioned):
     )
 
     hash_algo: str = "blake2s"
-    hash_len: int = 16
+    hash_len: int = 32
 
     def make(
         self,
