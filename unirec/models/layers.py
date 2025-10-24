@@ -287,7 +287,7 @@ class PointerNetwork(nn.Module):
         d_q: int,
         d_k: int,
         d_model: int,
-        attention_method: AttentionMethod = "scaled_dot_product",
+        attention_method: AttentionMethod = "additive",
     ):
         super(PointerNetwork, self).__init__()
 
