@@ -6,6 +6,7 @@ import math
 import uuid
 import numpy as np
 import torch
+from abc import ABC
 from dataclasses import dataclass, field, fields, is_dataclass
 from functools import cached_property
 from typing import Any, Callable, Iterable, Mapping, Sequence, Tuple, ClassVar, final
@@ -13,7 +14,13 @@ from torch import Tensor
 from packaging.version import Version
 from .version import Versioned
 
-__all__ = ["Fingerprint", "Fingerprinter", "fingerprint_field", "fingerprint_property"]
+__all__ = [
+    "Fingerprint",
+    "Fingerprinter",
+    "Fingerprintable",
+    "fingerprint_field",
+    "fingerprint_property",
+]
 
 FPItem = Tuple[str, Any]
 FPTransform = Callable[[Any], Any]
@@ -470,3 +477,18 @@ class Fingerprinter(Versioned):
                 return ("t", tuple(int(d) for d in getattr(v, "shape", ())), "err")
         s = str(v)
         return s if len(s) <= 128 else s[:125] + "..."
+
+
+class Fingerprintable(ABC):
+    _fingerprinter: ClassVar[Fingerprinter] = Fingerprinter()
+
+    @cached_property
+    def fingerprint(self) -> Fingerprint:
+        return self._fingerprinter.make(self)
+
+    @property
+    def key(self) -> str:
+        return self.fingerprint.digest
+
+    def refresh_fingerprint(self) -> None:
+        self.__dict__.pop("fingerprint", None)

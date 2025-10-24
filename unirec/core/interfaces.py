@@ -3,7 +3,7 @@ from dataclasses import dataclass, field
 from collections.abc import Iterable
 from torch import Tensor
 from typing import Any, ClassVar, Generic, Mapping, TypeVar, final
-from .fingerprint import Fingerprinter
+from .fingerprint import Fingerprintable
 from .state import PipelineState, Candidate, CandidateSet, Slate
 from .version import Versioned
 
@@ -120,7 +120,7 @@ class Profile(Context, Generic[TContext]):
 class Session(Context, Generic[TContext]): ...
 
 
-class Request(Context): ...
+class Request(Context, Fingerprintable): ...
 
 
 class Encodable(Versioned, Generic[TContext]):
@@ -140,7 +140,6 @@ class Encodable(Versioned, Generic[TContext]):
         self._session: Session[TContext] = session
         self._meta: Mapping[str, Any] = {} if meta is None else meta
 
-        self._fingerprinter: Fingerprinter = Fingerprinter()
         self._vec_profile_cached: dict[str, Tensor] = {}
         self._vec_session_cached: dict[str, Tensor] = {}
         self._vec_enc_cached: dict[tuple[str, str | None], Tensor] = {}
@@ -165,25 +164,25 @@ class Encodable(Versioned, Generic[TContext]):
         vec_enc: Tensor,
         request: Request | None = None,
     ):
-        self._vec_profile_cached[self._fingerprinter.key(encoder)] = vec_profile
-        self._vec_session_cached[self._fingerprinter.key(encoder)] = vec_session
+        self._vec_profile_cached[encoder.key] = vec_profile
+        self._vec_session_cached[encoder.key] = vec_session
         self._vec_enc_cached[
             (
-                self._fingerprinter.key(encoder),
-                None if request is None else self._fingerprinter.key(request),
+                encoder.key,
+                None if request is None else request.key,
             )
         ] = vec_enc
 
-    def get_vec_profile_cached(self, encoder_key: str) -> Tensor | None:
-        return self._vec_profile_cached.get(encoder_key)
+    def get_vec_profile_cached(self, encoder: "Encoder[TContext]") -> Tensor | None:
+        return self._vec_profile_cached.get(encoder.key)
 
-    def get_vec_session_cached(self, encoder_key: str) -> Tensor | None:
-        return self._vec_session_cached.get(encoder_key)
+    def get_vec_session_cached(self, encoder: "Encoder[TContext]") -> Tensor | None:
+        return self._vec_session_cached.get(encoder.key)
 
     def get_vec_enc_cached(
-        self, encoder_key: str, request_key: str | None
+        self, encoder: "Encoder[TContext]", request: Request | None
     ) -> Tensor | None:
-        return self._vec_enc_cached.get((encoder_key, request_key))
+        return self._vec_enc_cached.get((encoder.key, request.key))
 
 
 class Encoded(Versioned, Generic[TContext]):
@@ -223,7 +222,7 @@ class Encoded(Versioned, Generic[TContext]):
         return self._request
 
 
-class Encoder(Versioned, Generic[TContext]):
+class Encoder(Versioned, Generic[TContext], Fingerprintable):
     @abstractmethod
     def encode(
         self,
