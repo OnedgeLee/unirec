@@ -12,9 +12,15 @@ from ...data.encoded import UserEncoded
 class UserEncoder(Encoder[UserContext]):
     VERSION: ClassVar[Version] = Version("0.0.0")
 
-    def setup(self, emb_dim: int, item_memmap: NDArray[np.float32] | None):
-        self.emb_dim: int = emb_dim
-        self.item_memmap: NDArray[np.float32] | None = item_memmap
+    def __init__(self, d: int):
+        self.d = d
+
+    @override
+    def setup(self, resources: dict[str, Any]):
+        super().setup(resources)
+
+        # TODO: switch with optional statement after Component abstraction
+        self.item_memmap: NDArray[np.float32] | None = self.resources.get("item_memmap")
 
     @override
     def encode(

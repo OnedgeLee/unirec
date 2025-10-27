@@ -15,12 +15,23 @@ class TwotowerRetrieverFaiss(CandidateRetriever):
     @override
     def __init__(self, **params: Any):
         super().__init__(**params)
+        self.d: int = self.require_param("d", int)
         self.user_encoder: UserEncoder = self.require_param("user_encoder", UserEncoder)
         self.item_encoder: ItemEncoder = self.require_param("item_encoder", ItemEncoder)
         self.topk: int = self.require_param("K", int, 500)
         self.use_gpu: bool = self.require_param("use_gpu", bool, False)
         self.gpu_id: int = self.require_param("gpu", int, 0)
         self.query_normalized: bool = self.require_param("query_normalized", bool, True)
+
+        if self.d != self.user_encoder.d:
+            raise RuntimeError(
+                f"User encoder dimension '{self.user_encoder.d}' is different from retriever dimension '{self.d}'"
+            )
+
+        if self.d != self.item_encoder.d:
+            raise RuntimeError(
+                f"Item encoder dimension '{self.item_encoder.d}' is different from retriever dimension '{self.d}'"
+            )
 
         self.nprobe: int | None = self.optional_param("nprobe", int)
         self.ef_search: int | None = self.optional_param("ef_search", int)
@@ -29,7 +40,7 @@ class TwotowerRetrieverFaiss(CandidateRetriever):
         self.index: Any = None
         self.item_memmap: NDArray[np.float32] | None = None
         self.item_ids: list[int] | None = None
-        self.dim: int | None = None
+        self.is_ready: bool = False
 
     @override
     def setup(self, resources: dict[str, Any]) -> None:
@@ -53,7 +64,11 @@ class TwotowerRetrieverFaiss(CandidateRetriever):
         if self.ef_search is not None and hasattr(self.index, "hnsw"):
             self.index.hnsw.efSearch = int(self.ef_search)
 
-        self.dim = getattr(self.index, "d", None)
+        d: int | None = getattr(self.index, "d", None)
+        if d != self.d:
+            raise RuntimeError(
+                f"Dimension of FAISS index '{d}' is different from retriever dimension '{self.d}'"
+            )
 
         ids_path = cast(Optional[str], self.resources.get("item_ids_path"))
         if ids_path and os.path.exists(ids_path):
@@ -63,10 +78,14 @@ class TwotowerRetrieverFaiss(CandidateRetriever):
         if emb_path and os.path.exists(emb_path):
             self.item_memmap = np.load(emb_path, mmap_mode="r")
 
-        self.user_encoder.setup(self.dim, self.item_memmap)
+        self.user_encoder.setup(self.resources)
+        self.item_encoder.setup(self.resources)
+        self.is_ready = True
 
     @override
     def search_one(self, state: PipelineState, k: int) -> list[Candidate]:
+        if not self.is_ready:
+            raise RuntimeError("Retriver is not ready")
         if self.index is None:
             raise RuntimeError("FAISS index not loaded")
         user_encodable: UserEncodable = state.user

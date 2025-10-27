@@ -81,6 +81,36 @@ class Component(ABC):
     def setup(self, resources: dict[str, Any]):
         self.resources = resources
 
+    @final
+    def require_resource(
+        self, key: str, expected: type, default_value: Any | None = None
+    ) -> Any:
+        if key in self.resources:
+            val = self.resources[key]
+        elif default_value is not None:
+            self.resources[key] = default_value
+            val = default_value
+        else:
+            raise KeyError(f"{type(self).__name__}: missing required resource '{key}'")
+
+        if not isinstance(val, expected):
+            raise TypeError(
+                f"{self.__class__.__name__}: resource '{key}' must be {expected}, got {type(val).__name__}"
+            )
+        return val
+
+    @final
+    def optional_resource(self, key: str, expected: type) -> Any | None:
+        if key not in self.resources:
+            return None
+        val = self.resources.get(key)
+        if not isinstance(val, expected):
+            raise TypeError(
+                f"{self.__class__.__name__}: resource '{key}' must be {expected}, got {type(val).__name__}"
+            )
+
+        return val
+
     def close(self):  # pragma: no cover
         pass
 
@@ -225,6 +255,9 @@ class Encoded(Versioned, Generic[TContext]):
 
 
 class Encoder(Versioned, Generic[TContext], Fingerprintable):
+    def setup(self, resources: dict[str, Any]):
+        self.resources = resources
+
     @abstractmethod
     def encode(
         self,
