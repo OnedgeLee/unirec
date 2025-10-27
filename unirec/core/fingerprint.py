@@ -105,6 +105,7 @@ class Fingerprint:
         h.update(self.json_str.encode("utf-8"))
         return h.hexdigest()[: self.hash_len]
 
+    @property
     def key(self) -> str:
         return f"{self.algo}:{self.hash_len}:{self.digest}"
 
@@ -284,7 +285,7 @@ class Fingerprinter(Versioned):
             transforms=transforms,
             strict_attrs=strict_attrs,
             auto_discover=auto_discover,
-        ).key()
+        ).key
 
     def _discover(self, obj: Any) -> Iterable[FPItem]:
         if is_dataclass(obj):
@@ -488,7 +489,7 @@ class Fingerprintable(ABC):
 
     @property
     def key(self) -> str:
-        return self.fingerprint.digest
+        return self.fingerprint.key
 
     def refresh_fingerprint(self) -> None:
         self.__dict__.pop("fingerprint", None)

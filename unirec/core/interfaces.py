@@ -52,11 +52,13 @@ class Component(ABC):
     def require_param(
         self, key: str, expected: type, default_value: Any | None = None
     ) -> Any:
+        used_default: bool
         if key in self.params:
             val = self.params[key]
+            used_default = False
         elif default_value is not None:
-            self.params[key] = default_value
             val = default_value
+            used_default = True
         else:
             raise KeyError(f"{type(self).__name__}: missing required param '{key}'")
 
@@ -64,6 +66,10 @@ class Component(ABC):
             raise TypeError(
                 f"{self.__class__.__name__}: param '{key}' must be {expected}, got {type(val).__name__}"
             )
+
+        if used_default:
+            self.params[key] = val
+
         return val
 
     @final
@@ -85,11 +91,13 @@ class Component(ABC):
     def require_resource(
         self, key: str, expected: type, default_value: Any | None = None
     ) -> Any:
+        used_default: bool
         if key in self.resources:
             val = self.resources[key]
+            used_default = False
         elif default_value is not None:
-            self.resources[key] = default_value
             val = default_value
+            used_default = True
         else:
             raise KeyError(f"{type(self).__name__}: missing required resource '{key}'")
 
@@ -97,6 +105,10 @@ class Component(ABC):
             raise TypeError(
                 f"{self.__class__.__name__}: resource '{key}' must be {expected}, got {type(val).__name__}"
             )
+
+        if used_default:
+            self.resources[key] = val
+
         return val
 
     @final

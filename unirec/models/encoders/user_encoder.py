@@ -31,10 +31,10 @@ class UserEncoder(Encoder[UserContext]):
         **kwargs: Any,
     ) -> Encoded[UserContext]:
         return self.encode_user(
-            cast(UserEncodable, encodable), cast(RequestContext, request)
+            cast(UserEncodable, encodable), cast(RequestContext | None, request)
         )
 
     def encode_user(
-        self, encodable: UserEncodable, request: RequestContext
+        self, encodable: UserEncodable, request: RequestContext | None
     ) -> UserEncoded:
         return UserEncoded(Tensor(), encodable, request)
