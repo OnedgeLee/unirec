@@ -278,13 +278,16 @@ class TransformerDecoder(nn.Module):
         return out  # (batch_size, target_seq_len, d_model)
 
 
+AttentionMethod = Literal["additive", "scaled_dot_product"]
+
+
 class PointerNetwork(nn.Module):
     def __init__(
         self,
         d_q: int,
         d_k: int,
         d_model: int,
-        attention_method: Literal["additive", "scaled_dot_product"] = "additive",
+        attention_method: AttentionMethod = "additive",
     ):
         super(PointerNetwork, self).__init__()
 

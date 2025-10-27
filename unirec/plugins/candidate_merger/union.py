@@ -1,7 +1,7 @@
 from typing import cast, override
 from ...core.registry import register
 from ...core.interfaces import CandidateMerger
-from ...core.state import PipelineState, CandidateSet, Candidate
+from ...core.state import CandidateSet, Candidate
 
 
 @register("candidate_merger")

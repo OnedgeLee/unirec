@@ -6,7 +6,7 @@ from .registry import create
 
 
 def run_pipeline(cfg: Config, context: dict[str, Any]) -> PipelineState:
-    state: PipelineState = PipelineState(context=context)
+    state: PipelineState = PipelineState(user=context["UserEncodable"], context=context)
     resources: dict[str, Any] = cfg.get("resources", {})
     for stg in cfg.get("pipeline", []):
         kind: str = stg["kind"]

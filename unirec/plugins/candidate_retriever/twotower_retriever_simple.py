@@ -4,7 +4,9 @@ from typing import Any, cast, override
 from ...core.registry import register
 from ...core.interfaces import CandidateRetriever
 from ...core.state import Candidate, PipelineState
-from ..common import ArraySource, encode_user, load_array
+from ..common import ArraySource, load_array
+from ...data.encodable import UserEncodable
+from ...models.encoders import ItemEncoder, UserEncoder
 
 
 @register("candidate_retriever")
@@ -14,7 +16,22 @@ class TwotowerRetrieverSimple(CandidateRetriever):
     @override
     def __init__(self, **params: Any):
         super().__init__(**params)
+        self.d: int = self.require_param("d", int)
+        self.user_encoder: UserEncoder = self.require_param("user_encoder", UserEncoder)
+        self.item_encoder: ItemEncoder = self.require_param("item_encoder", ItemEncoder)
         self.topk: int = self.require_param("K", int, 500)
+
+        if self.d != self.user_encoder.d:
+            raise RuntimeError(
+                f"User encoder dimension '{self.user_encoder.d}' is different from retriever dimension '{self.d}'"
+            )
+
+        if self.d != self.item_encoder.d:
+            raise RuntimeError(
+                f"Item encoder dimension '{self.item_encoder.d}' is different from retriever dimension '{self.d}'"
+            )
+
+        self.is_ready: bool = False
 
     @override
     def setup(self, resources: dict[str, Any]):
@@ -26,11 +43,20 @@ class TwotowerRetrieverSimple(CandidateRetriever):
             "item_ids"
         )  # optional list same order as embeddings
 
+        self.user_encoder.setup(self.resources)
+        self.item_encoder.setup(self.resources)
+        self.is_ready = True
+
     @override
     def search_one(self, state: PipelineState, k: int) -> list[Candidate]:
         embs: NDArray[np.float32] = self.item_emb
         d: int = embs.shape[1]
-        u: NDArray[np.float32] = encode_user(state.context, embs, d)
+        user_encodable: UserEncodable = state.user
+        u: NDArray[np.float32] = (
+            self.user_encoder.encode(user_encodable, request=state.request)
+            .vector.numpy()
+            .astype(np.float32, copy=False)
+        )
         sims: NDArray[np.float32] = (embs @ u) / (
             np.linalg.norm(embs, axis=1) * (np.linalg.norm(u) + 1e-9)
         )

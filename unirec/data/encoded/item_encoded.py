@@ -1,11 +1,18 @@
 from torch import Tensor
-from ..core.interfaces import Encoded
+from typing import ClassVar, override
+from ...core.interfaces import Encodable, Encoded, Request
+from ...core.version import Version
+from ...data.context import ItemContext
 
 
-class ItemEncoded(Encoded):
-    def __init__(self, feature: Tensor):
-        self.__feature: Tensor = feature
+class ItemEncoded(Encoded[ItemContext]):
+    VERSION: ClassVar[Version] = Version("0.0.0")
 
-    @property
-    def feature(self) -> Tensor:
-        return self.__feature
+    @override
+    def __init__(
+        self,
+        vector: Tensor,
+        origin: Encodable[ItemContext],
+        request: Request | None = None,
+    ):
+        super().__init__(vector, origin, request)
