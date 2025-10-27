@@ -11,7 +11,7 @@ class ItemEncoder(Encoder[ItemContext]):
     VERSION: ClassVar[Version] = Version("0.0.0")
 
     def setup(self, emb_dim: int):
-        self.emb_dim = emb_dim
+        self.emb_dim: int = emb_dim
 
     @override
     def encode(

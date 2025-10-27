@@ -182,7 +182,9 @@ class Encodable(Versioned, Generic[TContext]):
     def get_vec_enc_cached(
         self, encoder: "Encoder[TContext]", request: Request | None
     ) -> Tensor | None:
-        return self._vec_enc_cached.get((encoder.key, request.key))
+        return self._vec_enc_cached.get(
+            (encoder.key, None if request is None else request.key)
+        )
 
 
 class Encoded(Versioned, Generic[TContext]):

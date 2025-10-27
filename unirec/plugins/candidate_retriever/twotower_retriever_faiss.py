@@ -53,7 +53,7 @@ class TwotowerRetrieverFaiss(CandidateRetriever):
         if self.ef_search is not None and hasattr(self.index, "hnsw"):
             self.index.hnsw.efSearch = int(self.ef_search)
 
-        self.dim = int(getattr(self.index, "d", 0)) or None
+        self.dim = getattr(self.index, "d", None)
 
         ids_path = cast(Optional[str], self.resources.get("item_ids_path"))
         if ids_path and os.path.exists(ids_path):
@@ -69,7 +69,6 @@ class TwotowerRetrieverFaiss(CandidateRetriever):
     def search_one(self, state: PipelineState, k: int) -> list[Candidate]:
         if self.index is None:
             raise RuntimeError("FAISS index not loaded")
-        d = int(self.dim or 0)
         user_encodable: UserEncodable = state.user
         u: NDArray[np.float32] = (
             self.user_encoder.encode(user_encodable, request=state.request)
