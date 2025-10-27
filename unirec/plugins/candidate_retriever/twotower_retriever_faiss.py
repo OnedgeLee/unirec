@@ -85,7 +85,7 @@ class TwotowerRetrieverFaiss(CandidateRetriever):
     @override
     def search_one(self, state: PipelineState, k: int) -> list[Candidate]:
         if not self.is_ready:
-            raise RuntimeError("Retriver is not ready")
+            raise RuntimeError("Retriever is not ready")
         if self.index is None:
             raise RuntimeError("FAISS index not loaded")
         user_encodable: UserEncodable = state.user
