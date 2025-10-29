@@ -1,15 +1,12 @@
 [project]
 name = "unirec"
 version = "0.1.0"
-description = "Add your description here"
+description = "Recsys library with pluggable architecture"
 readme = "README.md"
-requires-python = ">=3.13"
+requires-python = "==3.12.*"
 dependencies = [
-    "numpy>=2.3.3",
+    "numpy==1.26.4",
     "pyyaml>=6.0.3",
-    "torch>=2.8.0",
-    "torchaudio>=2.8.0",
-    "torchvision>=0.23.0",
 ]
 
 [dependency-groups]
@@ -21,3 +18,47 @@ dev = [
     "ruff>=0.13.2",
     "types-pyyaml>=6.0.12.20250915",
 ]
+
+[project.optional-dependencies]
+cpu = [
+  "torch==2.5.*",
+  "torchvision==0.20.*",
+  "torchaudio==2.5.*",
+  "faiss-cpu",
+]
+
+cu121 = [
+  "torch==2.5.*",
+  "torchvision==0.20.*",
+  "torchaudio==2.5.*",
+  "faiss-gpu-cu12",
+]
+
+[tool.uv]
+conflicts = [
+    [ { extra = "cpu" }, { extra = "cu121" } ],
+]
+
+[tool.uv.sources]
+torch = [
+    { index = "pytorch-cpu",   extra = "cpu"   },
+    { index = "pytorch-cu121", extra = "cu121" },
+]
+torchvision = [
+    { index = "pytorch-cpu",   extra = "cpu"   },
+    { index = "pytorch-cu121", extra = "cu121" },
+]
+torchaudio = [
+    { index = "pytorch-cpu",   extra = "cpu"   },
+    { index = "pytorch-cu121", extra = "cu121" },
+]
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[[tool.uv.index]]
+name = "pytorch-cu121"
+url = "https://download.pytorch.org/whl/cu121"
+explicit = true
