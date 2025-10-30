@@ -4,7 +4,6 @@ import pytest
 from unirec.core.registry import register, create, REGISTRY
 from unirec.core.interfaces import Component
 from unirec.core.state import PipelineState
-from unirec.data.encodable import UserEncodable
 import unirec.data.context.user_context as user_ctx
 
 UserProfileContext = user_ctx.UserProfileContext
