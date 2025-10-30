@@ -1,6 +1,5 @@
 """Tests for unirec.data.context modules."""
 
-import pytest
 from packaging.version import Version
 import unirec.data.context.user_context as user_ctx
 import unirec.data.context.item_context as item_ctx
