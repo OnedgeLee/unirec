@@ -87,9 +87,7 @@ def test_weighted_union_merge_respects_topk():
     merger = WeightedUnion()
 
     pools = {
-        "retriever1": [
-            Candidate(item_id=i, score=1.0 - i * 0.1) for i in range(10)
-        ],
+        "retriever1": [Candidate(item_id=i, score=1.0 - i * 0.1) for i in range(10)],
     }
 
     result = merger.merge(pools, user_id=100, topk=5)

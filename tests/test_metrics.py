@@ -122,9 +122,7 @@ def test_ild_at_k_identical_items():
 def test_ild_at_k_orthogonal_items():
     """Test ILD with orthogonal embeddings (maximum diversity)."""
     pred_items = [0, 1]
-    item_emb: NDArray[np.float32] = np.array(
-        [[1.0, 0.0], [0.0, 1.0]], dtype=np.float32
-    )
+    item_emb: NDArray[np.float32] = np.array([[1.0, 0.0], [0.0, 1.0]], dtype=np.float32)
     ild = ild_at_k(pred_items, item_emb, k=2)
     # Cosine similarity is 0.0, so diversity = 1 - 0 = 1
     assert ild == pytest.approx(1.0, abs=1e-5)
