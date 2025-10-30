@@ -84,7 +84,7 @@ def fingerprint_property(
 
 
 @final
-@dataclass(frozen=True, slots=True)
+@dataclass(frozen=True)
 class Fingerprint:
     json_str: str
     algo: str
@@ -178,7 +178,7 @@ class Fingerprint:
 
 
 @final
-@dataclass(slots=True)
+@dataclass
 class Fingerprinter(Versioned):
     VERSION: ClassVar[Version] = Version("0.0.0")
     FLOAT_DECIMALS: ClassVar[int] = 6

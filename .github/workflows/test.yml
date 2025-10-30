@@ -30,7 +30,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.13"]
+        python-version: ["3.12"]
 
     steps:
       - uses: actions/checkout@v4
@@ -50,8 +50,8 @@ jobs:
             uv-${{ runner.os }}-${{ matrix.python-version }}-
             uv-${{ runner.os }}-
 
-      - name: Sync dev deps
-        run: uv sync --locked --group dev --no-install-project
+      - name: Install dependencies
+        run: uv sync --locked --group dev --extra cpu
 
       - name: Ensure smoke test
         run: |

@@ -5,7 +5,7 @@ from torch import Tensor
 from typing import Any, ClassVar, Generic, Mapping, TypeVar, final
 from .fingerprint import Fingerprintable
 from .state import PipelineState, Candidate, CandidateSet, Slate
-from .version import Versioned
+from .version import Versioned, Version
 
 
 # -------- Shared data structures for policy outputs (for OPE/logging) --------
@@ -145,6 +145,8 @@ class Trainable(ABC):
 
 
 class Context(Versioned):
+    VERSION: ClassVar[Version] = Version("0.0.0")
+
     @property
     @abstractmethod
     def meta(self) -> Mapping[str, Any]: ...
@@ -171,6 +173,8 @@ class Encodable(Versioned, Generic[TContext]):
     This base holds a concrete context instance and exposes profile/session
     by delegating to it. Subclasses can add fields/methods needed for encoding.
     """
+
+    VERSION: ClassVar[Version] = Version("0.0.0")
 
     def __init__(
         self,
@@ -235,6 +239,8 @@ class Encoded(Versioned, Generic[TContext]):
     Encoded delegates profile/session to the origin Encodable; request is optional and carried only for logging/repro.
     """
 
+    VERSION: ClassVar[Version] = Version("0.0.0")
+
     def __init__(
         self,
         vector: Tensor,
@@ -267,6 +273,8 @@ class Encoded(Versioned, Generic[TContext]):
 
 
 class Encoder(Versioned, Generic[TContext], Fingerprintable):
+    VERSION: ClassVar[Version] = Version("0.0.0")
+
     def setup(self, resources: dict[str, Any]):
         self.resources = resources
 
