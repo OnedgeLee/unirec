@@ -31,22 +31,23 @@ class PolicyOutput:
     aux: dict[str, Any] = field(default_factory=dict)
 
 
-# -------- Base component interface --------
-class Component(ABC):
-    """Base class for all pipeline components.
+# -------- Base interface for lazy-loadable components --------
+class Loadable(ABC):
+    """Base interface for instances that support lazy-loading.
+
+    Provides initialization and setup lifecycle for components that need
+    to defer expensive operations (e.g., loading neural network models,
+    loading large arrays from disk) until setup time.
 
     Lifecycle:
-      - setup(resources): one-time init, load models/index/artifacts
-      - run(state): consume & produce specific fields according to contract below
+      - __init__(**params): initialize with configuration parameters
+      - setup(resources): one-time initialization, load models/artifacts
       - close(): optional teardown
     """
-
-    component_kind: ClassVar[str] = "component"
 
     def __init__(self, **params: Any):
         self.params: dict[str, Any] = params
         self.resources: dict[str, Any] = {}
-        self.id: str = params.get("id", self.__class__.__name__)
 
     @final
     def require_param(
@@ -125,6 +126,23 @@ class Component(ABC):
 
     def close(self):  # pragma: no cover
         pass
+
+
+# -------- Base component interface --------
+class Component(Loadable):
+    """Base class for all pipeline components.
+
+    Lifecycle:
+      - setup(resources): one-time init, load models/index/artifacts
+      - run(state): consume & produce specific fields according to contract below
+      - close(): optional teardown
+    """
+
+    component_kind: ClassVar[str] = "component"
+
+    def __init__(self, **params: Any):
+        super().__init__(**params)
+        self.id: str = params.get("id", self.__class__.__name__)
 
     @abstractmethod
     def run(self, state: PipelineState) -> PipelineState: ...
@@ -272,11 +290,8 @@ class Encoded(Versioned, Generic[TContext]):
         return self._request
 
 
-class Encoder(Versioned, Generic[TContext], Fingerprintable):
+class Encoder(Loadable, Versioned, Generic[TContext], Fingerprintable):
     VERSION: ClassVar[Version] = Version("0.0.0")
-
-    def setup(self, resources: dict[str, Any]):
-        self.resources = resources
 
     @abstractmethod
     def encode(
