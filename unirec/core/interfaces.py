@@ -4,7 +4,7 @@ from collections.abc import Iterable
 from torch import Tensor
 from typing import Any, ClassVar, Generic, Mapping, TypeVar, final
 from .fingerprint import Fingerprintable
-from .resources import Resources
+from .resources import TResources
 from .state import PipelineState, Candidate, CandidateSet, Slate
 from .version import Versioned, Version
 
@@ -33,8 +33,10 @@ class PolicyOutput:
 
 
 # -------- Base component interface --------
-class Component(ABC):
+class Component(ABC, Generic[TResources]):
     """Base class for all pipeline components.
+    
+    Generic over TResources to provide type-safe resource access.
 
     Lifecycle:
       - setup(resources): one-time init, load models/index/artifacts
@@ -46,7 +48,7 @@ class Component(ABC):
 
     def __init__(self, **params: Any):
         self.params: dict[str, Any] = params
-        self.resources: Resources | dict[str, Any] = {}
+        self.resources: TResources | dict[str, Any] = {}
         self.id: str = params.get("id", self.__class__.__name__)
 
     @final
@@ -85,22 +87,48 @@ class Component(ABC):
 
         return val
 
-    def setup(self, resources: Resources | dict[str, Any]):
+    def setup(self, resources: TResources | dict[str, Any]):
         self.resources = resources
 
     @final
     def require_resource(
         self, key: str, expected: type, default_value: Any | None = None
     ) -> Any:
+        """Get a required resource, checking by attribute name or dict key.
+        
+        For typed Resources, accesses the attribute directly, then checks extra field.
+        For dict, accesses by key for backward compatibility.
+        """
         used_default: bool
-        if key in self.resources:
-            val = self.resources[key]
-            used_default = False
-        elif default_value is not None:
-            val = default_value
-            used_default = True
+        
+        # Try attribute access for Resources subclasses
+        if isinstance(self.resources, dict):
+            # Backward compatibility: dict access
+            if key in self.resources:
+                val = self.resources[key]
+                used_default = False
+            elif default_value is not None:
+                val = default_value
+                used_default = True
+            else:
+                raise KeyError(f"{type(self).__name__}: missing required resource '{key}'")
         else:
-            raise KeyError(f"{type(self).__name__}: missing required resource '{key}'")
+            # Typed Resources: attribute access
+            val = None
+            if hasattr(self.resources, key):
+                val = getattr(self.resources, key)
+            
+            # If not found or None, check extra field if it exists
+            if val is None and hasattr(self.resources, 'extra') and key in self.resources.extra:
+                val = self.resources.extra[key]
+                used_default = False
+            elif val is None and default_value is not None:
+                val = default_value
+                used_default = True
+            elif val is None:
+                raise KeyError(f"{type(self).__name__}: missing required resource '{key}'")
+            else:
+                used_default = False
 
         if not isinstance(val, expected):
             raise TypeError(
@@ -108,15 +136,38 @@ class Component(ABC):
             )
 
         if used_default:
-            self.resources[key] = val
+            if isinstance(self.resources, dict):
+                self.resources[key] = val
+            else:
+                setattr(self.resources, key, val)
 
         return val
 
     @final
     def optional_resource(self, key: str, expected: type) -> Any | None:
-        if key not in self.resources:
-            return None
-        val = self.resources.get(key) if isinstance(self.resources, dict) else self.resources.get(key)
+        """Get an optional resource, checking by attribute name or dict key.
+        
+        For typed Resources, accesses the attribute directly, then checks extra field.
+        For dict, accesses by key for backward compatibility.
+        """
+        if isinstance(self.resources, dict):
+            # Backward compatibility: dict access
+            if key not in self.resources:
+                return None
+            val = self.resources.get(key)
+        else:
+            # Typed Resources: attribute access
+            val = None
+            if hasattr(self.resources, key):
+                val = getattr(self.resources, key)
+            
+            # If not found or None, check extra field if it exists
+            if val is None and hasattr(self.resources, 'extra') and key in self.resources.extra:
+                val = self.resources.extra[key]
+            
+            if val is None:
+                return None
+        
         if not isinstance(val, expected):
             raise TypeError(
                 f"{self.__class__.__name__}: resource '{key}' must be {expected}, got {type(val).__name__}"
@@ -276,7 +327,7 @@ class Encoded(Versioned, Generic[TContext]):
 class Encoder(Versioned, Generic[TContext], Fingerprintable):
     VERSION: ClassVar[Version] = Version("0.0.0")
 
-    def setup(self, resources: Resources | dict[str, Any]):
+    def setup(self, resources: TResources | dict[str, Any]):
         self.resources = resources
 
     @abstractmethod

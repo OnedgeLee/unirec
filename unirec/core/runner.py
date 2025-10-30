@@ -9,14 +9,8 @@ from .registry import create
 def run_pipeline(cfg: Config, context: dict[str, Any]) -> PipelineState:
     state: PipelineState = PipelineState(user=context["UserEncodable"], context=context)
     
-    # Support both dict (backward compatibility) and Resources
-    resources_config = cfg.get("resources", {})
-    if isinstance(resources_config, dict):
-        # Check if we should convert to Resources object
-        # For now, keep backward compatibility by using dict directly
-        resources: Resources | dict[str, Any] = resources_config
-    else:
-        resources = resources_config
+    # Get resources - can be dict (backward compat) or Resources subclass
+    resources: Resources | dict[str, Any] = cfg.get("resources", {})
     
     for stg in cfg.get("pipeline", []):
         kind: str = stg["kind"]
