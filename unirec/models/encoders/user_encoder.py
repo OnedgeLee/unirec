@@ -12,15 +12,16 @@ from ...data.encoded import UserEncoded
 class UserEncoder(Encoder[UserContext]):
     VERSION: ClassVar[Version] = Version("0.0.0")
 
-    def __init__(self, d: int):
+    def __init__(self, d: int, **params: Any):
+        super().__init__(d=d, **params)
         self.d = d
 
     @override
     def setup(self, resources: dict[str, Any]):
         super().setup(resources)
-
-        # TODO: switch with optional statement after Component abstraction
-        self.item_memmap: NDArray[np.float32] | None = self.resources.get("item_memmap")
+        self.item_memmap: NDArray[np.float32] | None = self.resources.get(
+            "item_memmap"
+        )
 
     @override
     def encode(

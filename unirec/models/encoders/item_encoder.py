@@ -10,7 +10,8 @@ from ...data.encoded import ItemEncoded
 class ItemEncoder(Encoder[ItemContext]):
     VERSION: ClassVar[Version] = Version("0.0.0")
 
-    def __init__(self, d: int):
+    def __init__(self, d: int, **params: Any):
+        super().__init__(d=d, **params)
         self.d: int = d
 
     @override
