@@ -19,8 +19,8 @@ class UserEncoder(Encoder[UserContext]):
     @override
     def setup(self, resources: dict[str, Any]):
         super().setup(resources)
-        self.item_memmap: NDArray[np.float32] | None = self.optional_resource(
-            "item_memmap", np.ndarray
+        self.item_memmap: NDArray[np.float32] | None = self.resources.get(
+            "item_memmap"
         )
 
     @override
