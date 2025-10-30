@@ -4,6 +4,7 @@ from collections.abc import Iterable
 from torch import Tensor
 from typing import Any, ClassVar, Generic, Mapping, TypeVar, final
 from .fingerprint import Fingerprintable
+from .resources import Resources
 from .state import PipelineState, Candidate, CandidateSet, Slate
 from .version import Versioned, Version
 
@@ -45,7 +46,7 @@ class Component(ABC):
 
     def __init__(self, **params: Any):
         self.params: dict[str, Any] = params
-        self.resources: dict[str, Any] = {}
+        self.resources: Resources | dict[str, Any] = {}
         self.id: str = params.get("id", self.__class__.__name__)
 
     @final
@@ -84,7 +85,7 @@ class Component(ABC):
 
         return val
 
-    def setup(self, resources: dict[str, Any]):
+    def setup(self, resources: Resources | dict[str, Any]):
         self.resources = resources
 
     @final
@@ -115,7 +116,7 @@ class Component(ABC):
     def optional_resource(self, key: str, expected: type) -> Any | None:
         if key not in self.resources:
             return None
-        val = self.resources.get(key)
+        val = self.resources.get(key) if isinstance(self.resources, dict) else self.resources.get(key)
         if not isinstance(val, expected):
             raise TypeError(
                 f"{self.__class__.__name__}: resource '{key}' must be {expected}, got {type(val).__name__}"
@@ -275,7 +276,7 @@ class Encoded(Versioned, Generic[TContext]):
 class Encoder(Versioned, Generic[TContext], Fingerprintable):
     VERSION: ClassVar[Version] = Version("0.0.0")
 
-    def setup(self, resources: dict[str, Any]):
+    def setup(self, resources: Resources | dict[str, Any]):
         self.resources = resources
 
     @abstractmethod

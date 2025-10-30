@@ -1,13 +1,23 @@
 from typing import Any
 from .config import Config
 from .interfaces import Component
+from .resources import Resources
 from .state import PipelineState
 from .registry import create
 
 
 def run_pipeline(cfg: Config, context: dict[str, Any]) -> PipelineState:
     state: PipelineState = PipelineState(user=context["UserEncodable"], context=context)
-    resources: dict[str, Any] = cfg.get("resources", {})
+    
+    # Support both dict (backward compatibility) and Resources
+    resources_config = cfg.get("resources", {})
+    if isinstance(resources_config, dict):
+        # Check if we should convert to Resources object
+        # For now, keep backward compatibility by using dict directly
+        resources: Resources | dict[str, Any] = resources_config
+    else:
+        resources = resources_config
+    
     for stg in cfg.get("pipeline", []):
         kind: str = stg["kind"]
         impl: str = stg["impl"]
