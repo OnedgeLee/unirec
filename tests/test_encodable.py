@@ -1,6 +1,5 @@
 """Tests for unirec.data.encodable and encoded modules."""
 
-import pytest
 import torch
 from packaging.version import Version
 from unirec.data.encodable import UserEncodable, ItemEncodable
