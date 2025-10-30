@@ -1,6 +1,5 @@
 """Tests for unirec.core.state module."""
 
-import pytest
 from unirec.core.state import Candidate, CandidateSet, Slate, PipelineState
 from unirec.data.encodable import UserEncodable
 import unirec.data.context.user_context as user_ctx
